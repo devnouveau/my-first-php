@@ -1,0 +1,6 @@
+04:53, 22nd October 2021	1 tires 	4 oil	1 spark plugs	$158.4	213-54636, seoul
+04:53, 22nd October 2021	2 tires 	4 oil	6 spark plugs	$290.4	213-54636, seoul
+05:01, 22nd October 2021	2 tires 	4 oil	6 spark plugs	$290.4	213-54636, seoul
+05:01, 22nd October 2021	2 tires 	4 oil	6 spark plugs	$290.4	213-54636, seoul
+05:01, 22nd October 2021	2 tires 	4 oil	6 spark plugs	$290.4	213-54636, seoul
+05:08, 22nd October 2021	1 tires 	4 oil	2 spark plugs	$162.8	2133-545326, seoul
