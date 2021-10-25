@@ -92,3 +92,37 @@ echo A::squared;
 - instanceof 연산자
 - 타입힌트 : 함수에 매개변수 전달시 타입을 검사하도록 사전에 힌팅
 function check_hint(B $classname) {} // 매개변수가 classname이나, 이를 상속하는 클래스의 인스턴스가 아닌 경우 오류 발생
+
+
+// 네임스페이스
+// 클래스, 함수, 인터페이스, 상수를 분류하여 모아둠
+- orders.php 네임스페이스 정의
+namespace orders;
+class order {...}
+class orderItem {...}
+- 네임스페이스의 클래스 사용시 1. (전체경로 네임스페이스)
+include 'orders.php';
+$myOrder = new orders\order(); // orders네임스페이스의 order클래스 사용 
+- 네임스페이스의 클래스 사용시 2. 현재 네임스페이스 탐색(함수,상수는 없으면 전역 네임스페이스에서 탐색)
+namespace orders;
+include 'orders.php'; // 현재 네임스페이스
+$myOrder = new order(); // 현재 네임스페이스를 탐색하는 경우 네임스페이스 생략
+
+// 서브 네임스페이스
+- 정의
+namespace bob\html\page; 
+class Page {}
+- 사용
+$services = new bob\html\page\Page(); // 서브경로포함
+$services = new html\page\Page(); // 현재 bob 네임스페이스에 있는 경우, 해당네임스페이스경로 생략
+
+// 전역 네임스페이스 사용
+$services = new \Page();
+
+// 네임스페이스 불러오기
+use bob\html\page; 
+$services = new page\Page();
+
+// 네임스페이스 별칭 사용
+use bob\html\page as www;
+$services = new www\Page();
