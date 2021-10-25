@@ -1,0 +1,94 @@
+
+OOP differences between
+PHP & JAVA
+
+
+[ php ]
+// 클래스 선언
+class classname {
+  private $attribute;
+  function operation() {
+  };
+  function __construct();
+  __get() {
+  return $this->$name;
+  }
+  __set($name, $value) {
+   $this->$name = $value;
+  }
+}
+
+// 인스턴스 생성, 속성/메소드 접근
+$a = new classname();
+$a->attribute; //자동으로 __get()함수 호출
+$a->attribute = 5; //자동으로 __set()함수 호출
+$a->operation();
+
+
+// 상속
+class A {  // final class A일 경우 :: 상속불가
+  public attribute = 1; // 상속가능
+  private $attribute1; // private키워드 :: 상속불가
+  function operation() { // 상속가능
+  };
+  final function operation1() { // final키워드 :: 오버라이딩 불가
+  };
+  function __construct();
+  __get() {
+  return $this->$name;
+  }
+  __set($name, $value) {
+   $this->$name = $value;
+  }
+}
+
+class B extends A {
+  public attribute = 2; // 속성 오버라이딩
+  private $attribute2;
+  function operation() { // 메소드 오버라이딩
+  };
+  function operation2() {
+  };
+  function __construct();
+  __get() {
+  return $this->$name;
+  }
+  __set($name, $value) {
+   $this->$name = $value;
+  }
+}
+
+// 상속 가시성 제어 (private/protected)
+private멤버 상속불가, 클래스외부 사용불가
+protected멤버 상속가능, 클래스외부 사용불가
+
+// 인터페이스 interface
+// 우회적으로 다중상속 구현
+// 반드시 구현해야 할 메소드를 지정
+
+// 트레이트 trait
+// 메서드 시그니처만 지정하는 인터페이스와 달리, 트레이트는 메서드 구현부도 포함
+// 여러 클래스에서 재사용될 수 있는 메서드를 모아둘 수 있음. 단일클래스 다중트레이트결합 가능. 트레이트 간 상속가능
+// user keyword로 사용
+// .. instead of ..
+//
+
+
+// 클래스 상수
+class A {
+  const pi = 3.14159;
+}
+echo "pi 값은 ".Math::pi;
+
+// static 메소드 
+// 참조하는 현재의 객체가 없으므로 this키워드 사용불가
+class A {
+  static function squared($input) {
+    return $input * $input;
+  }
+echo A::squared;
+
+// 클래스 타입, 힌트
+- instanceof 연산자
+- 타입힌트 : 함수에 매개변수 전달시 타입을 검사하도록 사전에 힌팅
+function check_hint(B $classname) {} // 매개변수가 classname이나, 이를 상속하는 클래스의 인스턴스가 아닌 경우 오류 발생
