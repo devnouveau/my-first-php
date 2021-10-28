@@ -1,0 +1,27 @@
+vagrant@homestead:~$ mysql -h 192.168.56.10 -u homestead -p;
+
+mysql> create database books;
+
+mysql> show databases;
+
+mysql> use books;
+
+
+mysql> source /home/vagrant/code/studyproject/public/mysql/bookorama.sql # 스키마생성 스크립트
+
+mysql> show tables;
+
+mysql> describe books;
+
+mysql> source /home/vagrant/code/studyproject/public/mysql/book_insert.sql # 데이터 insert 스크립트
+
+
+[ 새로 알게 된 것 ]
+- 데이터 타입 char(저장공간 미리 확보. varchar보다 속도 빠름) / varchar(유동적으로 저장공간 확보.)
+- mysql db는 파일시스템 디렉터리로 생성. 테이블은 하나 이상의 파일로 생성.
+- 데이터저장되는 디렉토리, 파일 위치 확인 
+mysql> show variables like 'datadir';
+- limit은 ANSI sql x, mysql에서 확장된 기능
+- 서브쿼리 연산자 ANY / SOME / ALL 
+- update 절의 LOW_PRIORITY, IGNORE (고유키 중복되는 행은 update X, update시 오류 발생하면 rollback되지 않고 계속 진행되도록 함), ORDER BY, LIMIT 사용
+
