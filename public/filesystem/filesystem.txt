@@ -1,0 +1,16 @@
+
+// 디렉터리 생성/삭제 함수
+$oldmask = umask(0);
+mkdir(경로, 권한(원래 권한 숫자에서 umask값을 8진수 뺄셈한 값));
+umask($oldmask);
+
+rmdir(/tmp/testing);// 유닉스
+rmdir(C:\\tmp\\testing);// 윈도우
+
+
+// 파일 속성 변경 함수
+chgrp(), chmod(), chown()
+
+
+// 파일 생성/삭제/이동 함수
+touch() / unlink(delete()아님) / copy() rename()

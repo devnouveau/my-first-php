@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <title>Upload a File</title>
+</head>
+<body>
+  <h1>Upload a File</h1>
+  <form action="upload.php" method="post" enctype="multipart/form-data"> 
+  <!-- 파일업로드는 GET method로 동작 X post method사용해야 함. 
+      // enctype추가하여 서버에 파일전송을 알려야 함 -->
+    
+    <input type="hidden" name="MAX_FILE_SIZE" value="1000000" /> 
+    <!-- php.ini 파일에 설정된 upload_max_filesize, post_max_size의 값보다 크기가 작을 경우에만 적용됨 -->
+
+    <label for="the_file">Upload a file:</label>
+    <input type="file" name="the_file" id="the_file"/> 
+    <!--
+    <label for="the_files[]">Upload a file:</label>
+    <input type="file" name="the_files[]" id="the_file1"/> 
+    <input type="file" name="the_files[]" id="the_file2"/> 
+    -->
+
+
+    <input type="submit" value="Upload File"/>
+  </form>
+
+</body>
+</html>
