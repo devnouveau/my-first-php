@@ -20,7 +20,7 @@ defineStrings();
     <ul>
         <li><a href="<?php echo $_SERVER['PHP_SELF']."?lang=en"; 
             // 링크 클릭시 lang값을 get으로 전달하면서 현재페이지로 이동
-            // (include된 define_lang.php에서 get으로 전달받은 lang값을 이용해 헤더를 세팅하고,
+            // (include된 define_lang.php에서 get으로 전달받은 lang값을 이용해 헤더를 세팅하고,,
             // lang_strings.php에서 상수값이 정해져서 출력됨) ?>">en</a></li>
         <li><a href="<?php echo $_SERVER['PHP_SELF']."?lang=ko";?>">ko</a></li>
         <li><a href="<?php echo $_SERVER['PHP_SELF']."?lang=ja";?>">ja</a></li>
