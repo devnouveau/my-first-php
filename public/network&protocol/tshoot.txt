@@ -1,0 +1,45 @@
+
+ftp_fget() -> false
+파일다운로드되지 않아 파일을 열 수 없음
+
+
+방화벽설정때문에 ftp다운로드가 되지 않을 수 있다고 함
+
+cli로 ftp서버 접근시도.
+
+cli ftp 다운로드 명령어
+https://blog.daum.net/sadest/15853425
+
+
+vagrant@homestead:~/code/studyproject/public$ ftp apache.cs.utah.edu
+Connected to mirror-vip.cs.utah.edu.
+220 Welcome to the UofU School of Computing FTP Mirror
+Name (apache.cs.utah.edu:vagrant): anonymous
+331 Please specify the password.
+Password:
+230 Login successful.
+Remote system type is UNIX.
+Using binary mode to transfer files.
+
+
+ftp> bi
+200 Switching to Binary mode.
+
+ftp> get /accumulo/1.10.1/accumulo-1.10.1-bin.tar.gz ~/code/studyproject/public/network&protocol/accumulo-1.10.1-bin.tar.gz
+local: /home/vagrant/code/studyproject/public/network&protocol/accumulo-1.10.1-bin.tar.gz remote: /accumulo/1.10.1/accumulo-1.10.1-bin.tar.gz
+421 Service not available, remote server has closed connection
+ftp>
+
+
+
+
+
+
+https://gucine.tistory.com/entry/FTP-%EC%A0%91%EC%86%8D%EC%8B%9C-421-service-not-available-%EB%9D%BC%EB%8A%94-%EC%97%90%EB%9F%AC%EB%AC%B8%EA%B5%AC-%EC%B6%9C%EB%A0%A5-FTP%EC%A0%91%EC%86%8D%EC%9D%B4-%EC%95%88%EB%90%A9%EB%8B%88%EB%8B%A4
+(ftp서버에서 설정하는 내용인듯...)
+
+-> 421 Service not available, remote server has closed connection 동일하게 발생
+
+
+
+

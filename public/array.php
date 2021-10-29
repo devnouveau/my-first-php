@@ -80,6 +80,14 @@
             }
         }
 
+        echo ' <br />';
+
+        echo "[ 배열 내용 한 번에 출력하기 ]<br />";
+        print_r($categories); // 배열내용 한번에 출력
+        // echo $categories; //  Warning: Array to string conversion // 배열은 echo로 바로 출력시 오류발생
+
+        echo ' <br />';
+
 
 
 
