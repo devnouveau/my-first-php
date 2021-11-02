@@ -1,0 +1,16 @@
+$ dpkg -l|grep png
+
+
+
+$ vagrant@homestead:/usr/local/src$ cat /proc/version
+
+
+ find / -name "php-config" -print
+
+
+/etc/php/8.0/fpm
+
+
+
+vagrant@homestead:/usr$ php -i|grep ^include
+include_path => .:/usr/share/php => .:/usr/share/php

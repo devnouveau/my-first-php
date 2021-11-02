@@ -16,6 +16,15 @@ mysql> describe books;
 mysql> source /home/vagrant/code/studyproject/public/mysql/book_insert.sql # 데이터 insert 스크립트
 
 
+
+
+#  사용자 조회
+mysql> use mysql;
+mysql> select user, host from user;
+
+
+
+
 [ 새로 알게 된 것 ]
 - 데이터 타입 char(저장공간 미리 확보. varchar보다 속도 빠름) / varchar(유동적으로 저장공간 확보.)
 - mysql db는 파일시스템 디렉터리로 생성. 테이블은 하나 이상의 파일로 생성.
