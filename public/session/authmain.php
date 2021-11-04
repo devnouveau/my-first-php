@@ -3,6 +3,8 @@
 // 세션시작
 session_start();
 
+// include('../debugging&logging/dump_variables.php');
+
 // 폼데이터 확인
 if(isset($_POST['userid']) && isset($_POST['password'])) {
     $userid = $_POST['userid'];
