@@ -49,7 +49,7 @@ try {
                }
              
                $newChats[] = $chat;
-            }
+           }
 
            $_SESSION['last_poll'] = $currentTime; // 폴링시간을 세션에 저장해 둠
 
