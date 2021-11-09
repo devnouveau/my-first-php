@@ -13,9 +13,3 @@
   display_user_menu();
   do_html_footer();
 ?>
-
-select distinct(b2.username)
-              from bookmark b1, bookmark b2
-		          where b1.username='noname'
-                and b1.username != b2.username
-                and b1.bm_URL = b2.bm_URL
