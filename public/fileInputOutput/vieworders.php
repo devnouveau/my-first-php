@@ -1,5 +1,4 @@
 <?php
-  // create short variable name
   $document_root = $_SERVER['DOCUMENT_ROOT'];
 ?>
 <!DOCTYPE html>
@@ -11,6 +10,9 @@
     <h1>Bob's Auto Parts</h1>
     <h2>Customer Orders</h2> 
     <?php
+    /****************** 파일내용읽기 01 ******************/
+
+
       // 데이터 읽기 - 1.파일 열기
       @$fp = fopen("$document_root/orderprocess/orders/orders.txt", 'rb'); // 읽기전용으로 열기 rb
       flock($fp, LOCK_SH); // lock file for reading (acquire a shared lock)
@@ -44,15 +46,32 @@
       // 데이터 읽기 - 3.파일 닫기
       fclose($fp); 
 
-
-      // =================================================
-
+      // ========================== 파일 IO관련 함수 =======================
+      // 파일 읽기
       // readfile("$document_root/orderprocess/orders/orders.txt"); // 파일열기, 표준출력, 닫기를 한번에 수행
-      // fpasethru(fopen("파일경로", 파일모드)); // 파일읽기 성공여부 t/f 반환 
+      // fpassthru(fopen("파일경로", 파일모드)); // 파일읽기 성공여부 t/f 반환 
       // $filearray = file("파일경로"); // 파일 데이터의 각 줄을 배열에 담아 반환
-      // file_get_contents(); // readfile과 동일하나, 브라우저 출력없이 문자열로 반환
+      // file_get_contents("파일경로"); // readfile과 동일하나, 브라우저 출력없이 문자열로 반환
 
       // fread(); // 임의의 바이트 수만큼 읽기
+
+
+      // fopen($fp), flock($fp, LOCK_SH), 
+      // feof($fp), fgets($fp), 
+      // flock($fp, LOCK_UN), fclose($fp)
+
+      // rewind($fp), fseek()
+
+            
+      // 파일 쓰기
+      // fopen($fp), flock($fp, LOCK_EX),
+      // fwrite($fp, $outputstring, strlen($outputstring)), 
+      // flock($fp, LOCK_UN), fclose($fp)
+
+
+      // file_put_contents("파일경로", "내용"); // 문자열을 파일에 저장
+
+
     ?>
   </body>
 </html>

@@ -30,7 +30,8 @@ echo "함수내부에서 생성된 전역변수를 함수외부에서 출력 ".$
 
 
 // ============================= pass by value / pass by reference =============================
-// pass by value : 함수 외부의 변수를 함수에 값으로 전달시, 새로운 변수로 전달되기 때문에 함수 내부에서 값을 변경해도 외부의 변수는 값 변화가 없다.
+// pass by value : 함수 외부의 변수를 함수에 값으로 전달시, 
+// 새로운 변수로 전달되기 때문에 함수 내부에서 값을 변경해도 외부의 변수는 값 변화가 없다.
 echo "<br />===== pass by value =====<br />";
 
 function increment($value, $amount = 1) {
@@ -41,7 +42,8 @@ increment($value);
 echo $value.'<br />'; // 10
 
 echo "<br />===== pass by reference =====<br />";
-// pass by reference : 함수외부의 변수의 참조를 함수에 전달시, 해당 참조변수를 변경하면 원래 변수값도 변경되어 외부 변수 값이 변한 걸 확인 할 수 있다.
+// pass by reference : 함수외부의 변수의 참조를 함수에 전달시, 
+// 해당 참조변수를 변경하면 원래 변수값도 변경되어 외부 변수 값이 변한 걸 확인 할 수 있다.
 function increment2(&$val, $add = 1) {
     $val = $val + $add; // 11
 }

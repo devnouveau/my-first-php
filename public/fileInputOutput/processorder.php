@@ -22,6 +22,11 @@
     <h1>Bob's Auto Parts</h1>
     <h2>Order Results</h2>
     <?php 
+
+    /****************** 파일내용쓰기 ******************/
+
+
+
         echo "<p>Order processed at ".date('H:i, jS F Y')."</p>";
         // echo "<p>Order processed at ";
         // echo date('H:i, jS F Y');

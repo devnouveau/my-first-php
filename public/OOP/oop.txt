@@ -126,3 +126,5 @@ $services = new page\Page();
 // 네임스페이스 별칭 사용
 use bob\html\page as www;
 $services = new www\Page();
+
+// 네임스페이스는 클래스 뿐 아니라 상수, 함수에 대해서도 사용가능

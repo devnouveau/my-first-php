@@ -25,6 +25,9 @@
     <h2>Customer Orders</h2> 
 
     <?php
+    /****************** 파일내용읽기 02 ******************/
+
+
       // 파일 읽어서 라인별로 배열에 저장하기
       $orders= file("$document_root/orderprocess/orders/orders.txt");
     

@@ -101,7 +101,7 @@ while($row = $result->fetch_assoc()){...} // array로 반환
 
 
     ```php
-    $conn = db_connect();
+    $conn = new mysqli('localhost', 'bm_user', 'password', 'bookmarks');
     $query = "select * from books where catid = '".$conn->real_escape_string($catid)."'";
     $result = @$conn->query($query);
     if (!$result) {
