@@ -2,7 +2,7 @@
 php의 의존성 관리도구. 
 
 
-### Packagist
+### Packagist.org
 - 컴포저의 메인저장소
 
 ### 의존성 정의
@@ -14,6 +14,21 @@ php의 의존성 관리도구.
     }
 } 
 ```
+### composer 디렉토리 초기화
+- 프로젝트 내에서 컴포저 디렉토리로 관리 하기를 원하는 경로에서 다음의 명령어 입력
+    ```bash
+    $ composer init 
+    ```
+- composer.json 파일이 생성됨
+    ```json
+    ...
+    "require" : {
+        // 의존성 내용...
+        // Packagist에서 패키지를 찾을 수 있음 
+        // (의존성 추가 명령어를 실행하여 파일내용이 변경되는 것을 확인할 수도 있음)
+    }
+    ...
+    ```
 
 ### composer install
 - composer.json 내용을 읽어서 정의된 라이브러리를 설치함

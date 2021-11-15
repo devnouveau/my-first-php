@@ -3,7 +3,10 @@
 
 // get_random_word(6,13);
 
-phpinfo();
+// phpinfo();
 
+$test = 2;
+$testadd = $test+3;
+echo $testadd;
 
 ?>
