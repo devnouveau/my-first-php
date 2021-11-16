@@ -22,19 +22,34 @@ echo print_r($arr);
 
 
 ## xdebug 사용 (homestead, VScode 사용시)
+- [참고링크1](https://matttonks11.medium.com/xdebug-laravel-homestead-php-8-vscode-e6067875431b)
+- [참고링크2](https://tighten.co/blog/debugging-configure-xdebug-and-laravel-homestead-and-vs-code-and-phpunit/)
+- VSCODE에 PHP IntelliSense, PHP Debug extensions 설치
 - xdebug설정파일 찾아서 수정하기
   ```bash
-  # xdebug설정파일 찾기
-  $ cd /etc/php/사용하는php버전/mods-available
-  $ sudo nano xdebug.ini  
+  # xdebug 사용하도록 설정
+  $ xon
+  # xdebug 사용되고 있는지 확인
+  $ php -v
+
+  # client_host 확인
+  $ netstat -rn | grep "^0.0.0.0 " | cut -d " " -f10
+  # netstat command not found일 경우 설치
+  $ sudo apt-get update
+  $ sudo apt-get install net-tools
+
+  # xdebug설정파일 찾기/수정
+  $ php --ini | grep xdebug
+  $ sudo vi /etc/php/8.0/cli/conf.d/20-xdebug.ini
 
   #아래와 같이 수정
   zend_extension=xdebug.so
-  xdebug.remote_enable = 1
-  xdebug.remote_connect_back = 1
-  xdebug.remote_port = 9000
+  xdebug.mode = debug
+  xdebug.discover_client_host = yes
+  xdebug.start_with_request = yes
+  xdebug.client_host = 10.0.2.2 
+  xdebug.client_port = 9003
   xdebug.idekey = VSCODE
-  xdebug.remote_autostart = 1
   xdebug.max_nesting_level = 512
 
   # 수정후 fpm재시작
@@ -55,13 +70,9 @@ echo print_r($arr);
     "configurations": [
         {
             "name": "Listen for XDebug",
-            "type": "php",
+            "type": "PHP",
             "request": "launch",
-            "port": 9000,
-            "pathMappings": {
-                "/home/vagrant/app": "${workspaceRoot}",
-            },
-
+            "port": 9000
         },
         {
             "name": "Launch currently open script",
@@ -69,7 +80,19 @@ echo print_r($arr);
             "request": "launch",
             "program": "${file}",
             "cwd": "${fileDirname}",
-            "port": 9000
+            "port": 9003,
+            "pathMappings": {
+                "/home/vagrant/laravel": "C:\\Users\\cho03\\laravel",
+            }
+        },
+        {
+            "name": "Listen for XDebug on Homestead",
+            "type": "php",
+            "request": "launch",
+            "port": 9003,
+            "pathMappings": {
+                "/home/vagrant/laravel": "C:\\Users\\cho03\\laravel",
+            }
         }
     ]
   }
