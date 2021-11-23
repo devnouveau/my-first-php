@@ -183,7 +183,7 @@ Request는 라우터처리를 위해 전달됨
 ### 2.5. 컨테이너 인스턴스에 접근 (PSR-11)
     ```php
     use Psr\Container\ContainerInterface;
-    Route::get('/', function (ContainerInterface $container) { // PSR-11 인터페이스를 타입힌트
+    Route::get('/', function (ContainerInterface $container) { // 서비스컨테이너는 PSR-11 ContainerInterface인터페이스를 구현한 것이기 때문에, 해당 인터페이스를 타입힌트하여 컨테이너 인스턴스에 접근가능
         $service = $container->get('Service'); 
         //
     });
@@ -219,9 +219,9 @@ Request는 라우터처리를 위해 전달됨
         }
     }
     ```
-- bindings, singletons 속성
-    - 서비스 프로바이더가 동일한 바인딩 여러개를 등록하는 경우
+- 서비스 프로바이더가 동일한 바인딩 여러개를 등록하는 경우
     ```php
+    // bindings, singletons 속성
     ...
         public $bindings = [ // 모든 컨테이너 바인딩이 등록됨
         ServerProvider::class => DigitalOceanServerProvider::class,
@@ -289,12 +289,12 @@ Request는 라우터처리를 위해 전달됨
 ### 4.1. 개요
 - 서비스 컨테이너에서 사용가능한 클래스들에 대한 "정적" 인터페이스를 제공 (일종의 정적 프록시 역할)
 - 간결한 문법, 테스트용이성, 코드유연성 유지
-```php
-use Illuminate\Support\Facades\Cache;
-Route::get('/cache', function () { 
-    return Cache::get('key');
-});
-```
+    ```php
+    use Illuminate\Support\Facades\Cache;
+    Route::get('/cache', function () { 
+        return Cache::get('key');
+    });
+    ```
 ### 4.2. 언제사용?
 - 의존성 주입, 테스트를 쉽게 해줌
 #### 4.2.1. 파사드 VS 의존성주입
@@ -383,71 +383,70 @@ Route::get('/cache', function () {
 - facade는 서비스컨테이너 외부에서 타입힌트, contracts의존성 없이 라라벨을 쉽게 사용할 수 있게 함
 ### 5.2. Contracts 사용시기
 #### 5.2.1. 느슨한 결합
-```php
-namespace App\Orders;
-class Repository
-{
-    protected $cache;
-    public function __construct(\SomePackage\Cache\Memcached $cache) //특정캐시 구현체와 결합
-    { 
-        $this->cache = $cache;
-    }
-    ...
-}
-```
-```php
-namespace App\Orders;
-use Illuminate\Contracts\Cache\Repository as Cache; // contracts 사용
-class Repository
-{
-    protected $cache;
-    public function __construct(Cache $cache) //특정캐시 구현체에 구속되지 않음. 단순인터페이스에 의존.
+    ```php
+    namespace App\Orders;
+    class Repository
     {
-        $this->cache = $cache;
+        protected $cache;
+        public function __construct(\SomePackage\Cache\Memcached $cache) //특정캐시 구현체와 결합
+        { 
+            $this->cache = $cache;
+        }
+        ...
     }
-}
-```
+    ```
+    ```php
+    namespace App\Orders;
+    use Illuminate\Contracts\Cache\Repository as Cache; // contracts 사용
+    class Repository
+    {
+        protected $cache;
+        public function __construct(Cache $cache) // 생성자의 타입힌트가 단순인터페이스. 특정캐시 구현체에 구속되지 않음. 
+        {
+            $this->cache = $cache;
+        }
+    }
+    ```
 #### 5.2.2. 단순함
 - 모든 서비스들이 인터페이스로 보기좋게 정의되어, Contract들이 프레임워크의 기능들에 대한 간결한 도큐먼트의 역할
 - 가독성, 유지보수성 향상
 
 ### 5.3. Contract 사용법
-```php
-namespace App\Listeners;
-use App\Events\OrderWasPlaced;
-use App\User;
-use Illuminate\Contracts\Redis\Factory;
-class CacheOrderInformation
-{
-    /**
-     * The Redis factory implementation.
-     */
-    protected $redis;
-
-    /**
-     * Create a new event handler instance.
-     *
-     * @param  Factory  $redis
-     * @return void
-     */
-    public function __construct(Factory $redis) // 타입힌트로 contract구현체 얻기. 이벤트리스너가 리졸브될 때, 서비스컨테이너가 타입힌트를 읽고 적절한 값을 주입함.
+    ```php
+    namespace App\Listeners;
+    use App\Events\OrderWasPlaced;
+    use App\User;
+    use Illuminate\Contracts\Redis\Factory;
+    class CacheOrderInformation
     {
-        $this->redis = $redis;
-    }
+        /**
+         * The Redis factory implementation.
+         */
+        protected $redis;
 
-    /**
-     * Handle the event.
-     *
-     * @param  OrderWasPlaced  $event
-     * @return void
-     */
-    public function handle(OrderWasPlaced $event)
-    {
-        //
+        /**
+         * Create a new event handler instance.
+         *
+         * @param  Factory  $redis
+         * @return void
+         */
+        public function __construct(Factory $redis) // 타입힌트로 contract구현체 얻기. 이벤트리스너가 리졸브될 때, 서비스컨테이너가 타입힌트를 읽고 적절한 값을 주입함.
+        {
+            $this->redis = $redis;
+        }
+
+        /**
+         * Handle the event.
+         *
+         * @param  OrderWasPlaced  $event
+         * @return void
+         */
+        public function handle(OrderWasPlaced $event)
+        {
+            //
+        }
     }
-}
-```
-### 5.4. 
+    ```
 
 
 
