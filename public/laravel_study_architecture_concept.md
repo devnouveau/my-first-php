@@ -77,41 +77,41 @@ Request는 라우터처리를 위해 전달됨
           ->give($value);
     ```
 #### 2.2.2. 인터페이스에 구현객체 바인딩
-    ```php
-    $this->app->bind(
-        'App\Contracts\EventPusher', // 인터페이스
-        'App\Services\RedisEventPusher' // 인터페이스의 구현객체
-    );
-    ```
-    ```php
-    // EventPusher인터페이스의 구현객체 필요시  
-    // 서비스컨테이너가 RedisEventPusher의존성 주입
-    use App\Contracts\EventPusher;
-    public function __construct(EventPusher $pusher)
-    {
-        $this->pusher = $pusher;
-    }
-    ```
+```php
+$this->app->bind(
+    'App\Contracts\EventPusher', // 인터페이스
+    'App\Services\RedisEventPusher' // 인터페이스의 구현객체
+);
+```
+```php
+// EventPusher인터페이스의 구현객체 필요시  
+// 서비스컨테이너가 RedisEventPusher의존성 주입
+use App\Contracts\EventPusher;
+public function __construct(EventPusher $pusher)
+{
+    $this->pusher = $pusher;
+}
+```
 #### 2.2.3. 문맥에 따른 조건적 바인딩
-    ```php
-    use App\Http\Controllers\PhotoController;
-    use App\Http\Controllers\UploadController;
-    use App\Http\Controllers\VideoController;
-    use Illuminate\Contracts\Filesystem\Filesystem;
-    use Illuminate\Support\Facades\Storage;
+```php
+use App\Http\Controllers\PhotoController;
+use App\Http\Controllers\UploadController;
+use App\Http\Controllers\VideoController;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Storage;
 
-    // 각각의 컨트롤러가 같은 인터페이스의 서로다른 구현체에 의존하는 경우
-    $this->app->when(PhotoController::class)
-            ->needs(Filesystem::class)
-            ->give(function () {
-                return Storage::disk('local');
-            });
-    $this->app->when([VideoController::class, UploadController::class])
-            ->needs(Filesystem::class)
-            ->give(function () {
-                return Storage::disk('s3');
-            });
-    ```
+// 각각의 컨트롤러가 같은 인터페이스의 서로다른 구현체에 의존하는 경우
+$this->app->when(PhotoController::class)
+        ->needs(Filesystem::class)
+        ->give(function () {
+            return Storage::disk('local');
+        });
+$this->app->when([VideoController::class, UploadController::class])
+        ->needs(Filesystem::class)
+        ->give(function () {
+            return Storage::disk('s3');
+        });
+```
 
 #### 2.2.4. 태깅
 - 특정 카테고리 전체 바인딩이 필요한 경우
@@ -131,12 +131,12 @@ Request는 라우터처리를 위해 전달됨
     ```
 
 #### 2.2.5. 바인딩확장
-    ```php
-    // extends() 메소드는 리졸브된 서비스의 의존성을 수정하게 해준다.
-    $this->app->extend(Service::class, function ($service, $app) {
-        return new DecoratedService($service);
-    });
-    ```
+```php
+// extends() 메소드는 리졸브된 서비스의 의존성을 수정하게 해준다.
+$this->app->extend(Service::class, function ($service, $app) {
+    return new DecoratedService($service);
+});
+```
 ### 2.3. 의존성 resolve
 #### 2.3.1. make()
 - 컨테이너 밖에서 의존성 resolve를 할 떄
@@ -181,16 +181,16 @@ Request는 라우터처리를 위해 전달됨
     ```
 
 ### 2.5. 컨테이너 인스턴스에 접근 (PSR-11)
-    ```php
-    use Psr\Container\ContainerInterface;
-    Route::get('/', function (ContainerInterface $container) { // 서비스컨테이너는 PSR-11 ContainerInterface인터페이스를 구현한 것이기 때문에, 해당 인터페이스를 타입힌트하여 컨테이너 인스턴스에 접근가능
-        $service = $container->get('Service'); 
-        //
-    });
-    // 식별자 reslove 불가시 예외 thrown
-    // Psr\Container\NotFoundExceptionInterface : 식별자 바인드되지 않은 경우
-    // Psr\Container\ContainerExceptionInterface : 식별자 바인드 되었으나 resolve 불가시
-    ```
+```php
+use Psr\Container\ContainerInterface;
+Route::get('/', function (ContainerInterface $container) { // 서비스컨테이너는 PSR-11 ContainerInterface인터페이스를 구현한 것이기 때문에, 해당 인터페이스를 타입힌트하여 컨테이너 인스턴스에 접근가능
+    $service = $container->get('Service'); 
+    //
+});
+// 식별자 reslove 불가시 예외 thrown
+// Psr\Container\NotFoundExceptionInterface : 식별자 바인드되지 않은 경우
+// Psr\Container\ContainerExceptionInterface : 식별자 바인드 되었으나 resolve 불가시
+```
 
 
 ## 3. Service Providers
@@ -254,7 +254,6 @@ Request는 라우터처리를 위해 전달됨
     public function boot(ResponseFactory $response) // 타입힌트로 의존성 주입
     {
         $response->macro('caps', function ($value) {
-            //
         });
     }
     ```
@@ -383,70 +382,70 @@ Request는 라우터처리를 위해 전달됨
 - facade는 서비스컨테이너 외부에서 타입힌트, contracts의존성 없이 라라벨을 쉽게 사용할 수 있게 함
 ### 5.2. Contracts 사용시기
 #### 5.2.1. 느슨한 결합
-    ```php
-    namespace App\Orders;
-    class Repository
-    {
-        protected $cache;
-        public function __construct(\SomePackage\Cache\Memcached $cache) //특정캐시 구현체와 결합
-        { 
-            $this->cache = $cache;
-        }
-        ...
+```php
+namespace App\Orders;
+class Repository
+{
+    protected $cache;
+    public function __construct(\SomePackage\Cache\Memcached $cache) //특정캐시 구현체와 결합
+    { 
+        $this->cache = $cache;
     }
-    ```
-    ```php
-    namespace App\Orders;
-    use Illuminate\Contracts\Cache\Repository as Cache; // contracts 사용
-    class Repository
+    ...
+}
+```
+```php
+namespace App\Orders;
+use Illuminate\Contracts\Cache\Repository as Cache; // contracts 사용
+class Repository
+{
+    protected $cache;
+    public function __construct(Cache $cache) // 생성자의 타입힌트가 단순인터페이스. 특정캐시 구현체에 구속되지 않음. 
     {
-        protected $cache;
-        public function __construct(Cache $cache) // 생성자의 타입힌트가 단순인터페이스. 특정캐시 구현체에 구속되지 않음. 
-        {
-            $this->cache = $cache;
-        }
+        $this->cache = $cache;
     }
-    ```
+}
+```
 #### 5.2.2. 단순함
 - 모든 서비스들이 인터페이스로 보기좋게 정의되어, Contract들이 프레임워크의 기능들에 대한 간결한 도큐먼트의 역할
 - 가독성, 유지보수성 향상
 
 ### 5.3. Contract 사용법
-    ```php
-    namespace App\Listeners;
-    use App\Events\OrderWasPlaced;
-    use App\User;
-    use Illuminate\Contracts\Redis\Factory;
-    class CacheOrderInformation
+```php
+namespace App\Listeners;
+use App\Events\OrderWasPlaced;
+use App\User;
+use Illuminate\Contracts\Redis\Factory;
+class CacheOrderInformation
+{
+    /**
+     * The Redis factory implementation.
+     */
+    protected $redis;
+
+    /**
+     * Create a new event handler instance.
+     *
+     * @param  Factory  $redis
+     * @return void
+     */
+    public function __construct(Factory $redis) // 타입힌트로 contract구현체 얻기. 이벤트리스너가 리졸브될 때, 서비스컨테이너가 타입힌트를 읽고 적절한 값을 주입함.
     {
-        /**
-         * The Redis factory implementation.
-         */
-        protected $redis;
-
-        /**
-         * Create a new event handler instance.
-         *
-         * @param  Factory  $redis
-         * @return void
-         */
-        public function __construct(Factory $redis) // 타입힌트로 contract구현체 얻기. 이벤트리스너가 리졸브될 때, 서비스컨테이너가 타입힌트를 읽고 적절한 값을 주입함.
-        {
-            $this->redis = $redis;
-        }
-
-        /**
-         * Handle the event.
-         *
-         * @param  OrderWasPlaced  $event
-         * @return void
-         */
-        public function handle(OrderWasPlaced $event)
-        {
-            //
-        }
+        $this->redis = $redis;
     }
-    ```
+
+    /**
+     * Handle the event.
+     *
+     * @param  OrderWasPlaced  $event
+     * @return void
+     */
+    public function handle(OrderWasPlaced $event)
+    {
+        //
+    }
+}
+```
 
 
 
