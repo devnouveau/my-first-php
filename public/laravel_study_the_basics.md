@@ -880,16 +880,878 @@ class UserController extends Controller
     $ php artisan route:clear
     ```
 
-
 # 5. Requests
+## 5.1. Request 액세스하기
+```php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    public function store(Request $request) // Request 타입힌트하여 의존성 주입해야 액세스 가능
+    {
+        $name = $request->input('name');
+
+        //
+    }
+}
+```
+- 의존성 주입 & 라우트 파라미터
+```php
+Route::put('user/{id}', 'UserController@update'); // 라우트 파리미터를 받는 경우
+```
+```php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    public function update(Request $request, $id) // Illuminate\Http\Request를 타입힌트 하면서 동시에 라우트 파라미터 {id}에 접근가능
+    {
+    }
+}
+```
+- 라우트 클로저를 통해서 Request 액세스하기
+```php
+use Illuminate\Http\Request;
+
+Route::get('/', function (Request $request) { // 라우트 클로저에서도 Illuminate\Http\Request를 타입힌트하여 의존성 주입 가능
+});
+```
+
+
+### 5.1.1. Request 경로 & 메소드
+Illuminate\Http\Request 인스턴스는 http request 검사를 위한 다양한 메소드 제공하며 Symfony\Component\HttpFoundation\Request 클래스를 상속함
+
+- Request 경로 조회하기
+    ```php
+    // request의 path메소드는 request의 경로정보를 반환
+    $uri = $request->path(); 
+    // http://domain.com/foo/bar요청시 foo/bar를 반환
+    ```
+    ```php
+    // is메소드는 요청이 특정 패턴에 상응하는지 확인
+    if ($request->is('admin/*')) { 
+        //
+    }
+    ```
+- Request URI 조회하기
+    ```php
+    // Without Query String...
+    $url = $request->url(); // http://domain.com/foo/bar
+
+    // With Query String...
+    $url = $request->fullUrl(); // http://domain.com/foo/bar?var=1
+    ```
+- Request HTTP 메소드(verb) 조회하기
+    ```php
+    $method = $request->method(); // 요청 메소드 확인
+    if ($request->isMethod('post')) { // 특정 메소드와 상응하는지 확인
+    }
+    ```
+
+### 5.1.2. PSR-7 Requests
+- PSR-7 표준 : request, response를 포함한 http메세지들에 대한 인터페이스 지정
+- 라라벨 request대신 PSR-7요청의 인스턴스 사용가능
+    - 사용방법
+        1. 라이브러리 설치
+            ```bash
+            # Symfony HTTP Message Bridge 컴포넌트 사용하여
+            # 라라벨의 요청과 응답을 PSR-7에 맞는 구현체로 변환하게 됨
+            $ composer require symfony/psr-http-message-bridge
+            $ composer require zendframework/zend-diactoros
+            ```
+        2. 라우트클로저 or 컨트롤러 메소드에 타입힌트하여 PSR-7 Request얻기
+            ```php
+            use Psr\Http\Message\ServerRequestInterface;
+
+            Route::get('/', function (ServerRequestInterface $request) { // ServerRequestInterface PSR-7 request인스턴스 주입
+                // 반환된 PSR-7 response 인스턴스는 자동으로 라라벨 response 인스턴스로 변환됨
+            });
+            ```
+
+
+## 5.2. 입력값 Trim & 일반화 처리
+### 글로벌 미들웨어 TrimStrings, ConvertEmptyStringsToNull        
+    - App\Http\Kernel클래스의 미들웨어 설정 참고
+    - 요청으로 유입되는 문자필드를 자동으로 trim 및 공백필드 null변환
+    - 비활성화를 위해서는 $middleware속성에서 해당 미들웨어 제거
+
+## 5.3. 입력값 조회
+### 모든 입력값 조회
+```php
+$input = $request->all(); // all() : 모든 입력데이터를 배열로 조회
+```
+
+### 입력값 조회
+request verb에 상관없이, Illuminate\Http\Request 인스턴스에서 모든 사용자 입력에 접근 가능하도록 하는 input() 메소드 (쿼리스트링으로 전달된 값도 접근가능)
+- input() 기본 사용
+    ```php
+    $name = $request->input('name');
+    ```
+    ```php
+    $name = $request->input('name', 'Sally'); // 입력값 없이 전달된 경우 두번째 인자를 기본값으로 반환
+    ```
+- 배열 input값이 전달되는 경우
+    ```php
+    $name = $request->input('products.0.name'); // 배열에 접근하기 위해 dot. 표기법 사용
+    $names = $request->input('products.*.name');
+    ```
+- 모든 입력값을 연관배열로 검색하기
+    ```php
+    $input = $request->input(); // 인자없이 input() 호출
+    ```
+
+### 쿼리 스트링에서만 입력값 조회
+- query() 기본사용
+    ```php
+    $name = $request->query('name');
+    ```
+    ```php
+    $name = $request->query('name', 'Helen'); // 해당 쿼리 스트링값 없이 전달된 경우 두번째 인자를 기본값으로 반환
+    ```
+- 모든 쿼리 스트링값을 연관배열로 검색하기
+    ```php
+    $input = $request->query(); // 인자없이 query() 호출
+    ```    
+### 동적 속성을 통한 입력값 조회
+- Illuminate\Http\Request인스턴스의 동적속성 : e.g. form의 필드
+    ```php
+    $name = $request->name; // form의 'name' 필드값에 접근가능
+    ```
+- 동적속성 사용시 request payload 내 파라미터 값을 먼저 찾고, 없으면 라우트 파라미터의 필드를 찾게 됨.
+
+### JSON 입력 값 조회
+JSON요청 전달시, 헤더속성 Content-Type이 application/json으로 지정되어 있다면 input메소드로 JSON데이터에 접근가능 
+```php
+$name = $request->input('user.name'); // dot.으로 JSON배열 접근 가능
+```
+
+### 입력 데이터의 한 부분 조회
+```php
+// 입력데이터 중 반환할 부분 제한하기
+$input = $request->only(['username', 'password']);
+$input = $request->only('username', 'password');
+$input = $request->except(['credit_card']);
+$input = $request->except('credit_card');
+```
+
+### 입력값이 존재하는지 확인
+```php
+// request에 특정값이 존재하는지 확인하는 has()
+if ($request->has('name')) { 
+}
+// has()에 배열이 인자로 주어지면 주어진 모든 값이 존재하는지 확인
+if ($request->has(['name', 'email'])) {
+}
+// hasAny()는 지정값이 하나라도 존재하면 true반환
+if ($request->hasAny(['name', 'email'])) {
+}
+// missing()은 주어진 키가 request에 없는지 확인
+if ($request->missing('name')) {
+}
+```
+
+
+
+### 5.3.1. 이전 request입력값 저장/확인하기
+- request입력값을 다음 request에서도 유지할 수 있음
+- 유효성 검사 오류 감지 후 폼을 다시 채울 때 사용
+- 유효성 검사 기능들이 자동으로 이 기능을 호출
+- 방법
+    1. 입력값을 세션에 임시 저장하기
+        - Illuminate\Http\Request클래스의 flash() 메소드
+            ```php
+            $request->flash(); // 현재 request입력값을 세션에 저장
+
+            // 현재 request입력값의 일부분을 세션에 임시 저장
+            // pw같은 민감정보를 제외시킬 때 유용
+            $request->flashOnly(['username', 'email']);
+            $request->flashExcept('password');
+            ```
+        - 입력값을 임시저장한 후 리다이렉트하기
+            ```php
+            return redirect('form')->withInput();
+            // 리다이렉트시 withInput()으로 입력값을 세션에 임시저장하도록 간단하게 메소드 체이닝
+            return redirect('form')->withInput( 
+                $request->except('password') // 일부값은 제외하고 임시저장
+            );
+            ```
+    2. 이전request에서 저장된 입력값 조회하기
+        - old()메소드로 세션에 저장된 입력데이터 꺼내기
+            ```php
+            $username = $request->old('username'); 
+            ```
+        - 블레이드 템플릿에서 글로벌 old 헬퍼함수 사용
+            ```php
+            <input type="text" name="username" value="{{ old('username') }}">
+            ```
+
+
+
+### 5.3.2. 쿠키
+- Request에서 쿠키 조회하기
+    - 라라벨에서 생성된 모든 쿠키는 인증코드와 함께 암호화됨(쿠키변조시 유효하지 않은 것으로 간주)
+    - request에서 쿠키 값 가져오기
+        ```php
+        // Illuminate\Http\Request 인스턴스에서 cookie 메소드 사용
+        $value = $request->cookie('name');
+        ```
+    - Cookie 파사드 사용하여 쿠키값 가져오기
+        ```php
+        use Illuminate\Support\Facades\Cookie;
+        $value = Cookie::get('name');
+        ```
+- Response에 쿠키 추가하기
+    - Illuminate\Http\Response인스턴스에 cookie메소드를 사용해 쿠키 추가
+        ```php
+        return response('Hello World')->cookie(
+            'name', 'value', $minutes // 쿠키명, 쿠키값, 유효시간(분)
+        );
+        ```
+        ```php
+        return response('Hello World')->cookie(
+            'name', 'value', $minutes, $path, $domain, $secure, $httpOnly // php setcookie메소드에 제공되는 인자들과 동일한 의미를 갖는 인자들 사용가능
+        ); 
+        ```
+- 쿠키 인스턴스 생성하기
+    - Symfony\Component\HttpFoundation\Cookie 인스턴스를 생성해두고, 나중에 response 인스턴스에 추가시키거나/시키지 않을 수도 있음
+        ```php
+        // cookie헬퍼함수사용하여 쿠키 인스턴스 생성
+        $cookie = cookie('name', 'value', $minutes);
+        // response에 쿠키 추가 
+        return response('Hello World')->cookie($cookie); 
+        ```
+
+
+## 5.4. 파일처리
+### 5.4.1. 업로드된 파일 조회 
+- 업로드 파일 인스턴스(PHP의 SplFileInfo클래스를 상속한 
+    // Illuminate\Http\UploadedFile클래스의 인스턴스) 얻기
+    ```php
+    // Illuminate\Http\Request 인스턴스의 file()로 업로드된 파일에 액세스
+    // file()은 PHP의 SplFileInfo클래스를 상속한 
+    // Illuminate\Http\UploadedFile클래스의 인스턴스를 반환하며, 파일상호작용 메소드들을 제공
+    $file = $request->file('photo');
+
+    // Illuminate\Http\Request 인스턴스의 동적속성(form 필드)로 업로드된 파일에 액세스
+    $file = $request->photo; 
+
+    // request가 file을 갖고 있는지 확인
+    if ($request->hasFile('photo')) { 
+    }
+    ```
+
+- 업로드 성공 확인
+    ```php 
+    // file()에서 반환된 UploadedFile인스턴스의 isValid()를 사용해 파일존재여부/업로드파일의 이상여부 확인 가능
+    if ($request->file('photo')->isValid()) {
+    }
+    ```
+
+- 파일 경로 & 확장자
+    ```php 
+    $path = $request->photo->path(); // UploadedFile의 전체경로 반환
+    $extension = $request->photo->extension(); // UploadedFile의 확장자 반환
+    ```
+
+
+### 5.4.2. 업로드된 파일 저장
+- UploadedFile클래스 store()
+    - 업로드된 파일을 로컬 파일 시스템이나 클라우드 스토리지 디스크에 이동시킴
+    - 루트 디렉토리를 기준으로 파일이 저장될 경로 전달받음 (파일명은 미포함해야 함. 파일명은 고유 ID로 생성.)
+        ```php
+        $path = $request->photo->store('images'); // 파일저장경로
+        $path = $request->photo->store('images', 's3'); // 파일저장경로, 파일저장 디스크이름
+        ```
+    - 파일명을 임의 지정시 
+        ```php
+        // storeAs()메소드에 경로, 파일명, 디스크명을 인자로 넘겨줌
+        $path = $request->photo->storeAs('images', 'filename.jpg');
+        $path = $request->photo->storeAs('images', 'filename.jpg', 's3');
+        ```
+
+## 5.5. 신뢰할 수 있는 프록시 설정
+- TLS / SSL 인증서가 적용된 로드밸런서 뒤에서 애플리케이션 실행시,
+애플리케이션에서 HTTPS링크가 생성되지 않는 경우 발생
+- 애플리케이션이 포트80 로드밸런서에서 전송되는 트래픽 뒤에 위치해서 HTTPS링크를 생성해야 함을 알지 못하기 때문
+- App\Http\Middleware\TrustProxies 미들웨어로 신뢰할 수 있는 로드밸런서 or 프록시설정, 신뢰해야 할 프록시헤더 설정 가능 ($proxies 속성배열에 설정)
+    ```php
+    namespace App\Http\Middleware;
+
+    use Fideloper\Proxy\TrustProxies as Middleware;
+    use Illuminate\Http\Request;
+
+    class TrustProxies extends Middleware
+    {
+        /**
+        * The trusted proxies for this application.
+        *
+        * @var array
+        */
+        protected $proxies = [
+            '192.168.1.1',
+            '192.168.1.2',
+        ];
+        // protected $proxies = '*'; // 모든 프록시 신뢰하기
+        // 클라우드 로드밸런서 사용시 실제 로드밸런서 IP를 알기 어려우므로 모든 프록시를 신뢰하도록 함
+
+        /**
+        * The headers that should be used to detect proxies.
+        *
+        * @var string
+        */
+        protected $headers = Request::HEADER_X_FORWARDED_ALL;
+    }
+    ```
 
 # 6. Responses
+## 6.1. Responses 생성
+- 문자열 & 배열 response
+    - 문자열 반환과 response
+        ```php
+        Route::get('/', function () {
+            return 'Hello World'; // 라우트/컨트롤러에서 문자열 반환시, 프레임워크가 자동으로 문자열을 HTTP response로 변환
+        });
+        ```
+    - 배열 반환과 JSON Response
+        ```php
+        Route::get('/', function () {
+            return [1, 2, 3]; // 라우트/컨트롤러에서 배열 반환시, 프레임워크가 자동으로 배열을 JSON response로 변환
+        });
+        ```
+    - 라우트/컨트롤러에서 Eloquent컬렉션 반환시에도 JSON response로 변환
+- Response 객체  
+    - 라우트에서 Illuminate\Http\Response 인스턴스나 views도 반환 가능
+    - Response인스턴스는 Symfony\Component\HttpFoundation\Response클래스를 구현하며, HTTP response 생성위한 메소드 제공 (response상태코드, 헤더 변경 등 가능)
+    ```php
+    Route::get('home', function () {
+        return response('Hello World', 200) // response객체반환
+                    ->header('Content-Type', 'text/plain');
+    });
+    ```
+### 6.1.1. Responses에 헤더추가
+```php
+// response돌려주기 전에 메소드체이닝으로 header추가 가능
+return response($content)
+            ->header('Content-Type', $type)
+            ->header('X-Header-One', 'Header Value')
+            ->header('X-Header-Two', 'Header Value');
+```
+```php
+return response($content)
+            ->withHeaders([ // withHeaders()로 response에 추가할 헤더의 배열 지정 가능
+                'Content-Type' => $type,
+                'X-Header-One' => 'Header Value',
+                'X-Header-Two' => 'Header Value',
+            ]);
+```
+
+- Cache Control 미들웨어
+    ```php
+    // cache.headers 미들웨어는 라우트그룹에 cache control헤더를 빠르게 설정
+    // etag 지시어 지정시 응답내용의 MD5해시가 자동으로 ETag식별자로 설정
+    Route::middleware('cache.headers:public;max_age=2628000;etag')->group(function() {
+        Route::get('privacy', function () {
+            // ...
+        });
+        Route::get('terms', function () {
+            // ...
+        });
+    });
+    ```
+### 6.1.2. Responses에 쿠키추가
+```php
+// cookie()메소드 체이닝
+return response($content)
+                ->header('Content-Type', $type) 
+                ->cookie('name', 'value', $minutes); // cookie생성하여 response에 추가
+```
+```php
+// Cookie 파사드의 queue 사용
+// response가 브라우저로 전달되기 전에 쿠키가 추가됨
+Cookie::queue(Cookie::make('name', 'value', $minutes));
+Cookie::queue('name', 'value', $minutes);
+```
+
+### 6.1.3. 쿠키 & 암호화
+- 라라벨에서 생성되는 쿠키는 암호화 및 서명적용되어 클라이언트에서 수정확인 불가
+- 암호화 비활성화
+    ```php
+    // app/Http/Middleware디렉토리 내 
+    // App\Http\Middleware\EncryptCookies미들웨어의 $except속성 설정
+    protected $except = [
+        'cookie_name',
+    ];
+    ```
+
+
+## 6.2. Redirect
+- Illuminate\Http\RedirectResponse의 인스턴스
+- 리다이렉트를 위한 헤더를 포함하고 있음
+- RedirectResponse 인스턴스 생성 방법
+    - redirect() 헬퍼함수 사용
+        ```php
+        Route::get('dashboard', function () {
+            return redirect('home/dashboard');
+            // 
+        });
+        ```
+    - back() 헬퍼함수 사용
+        ```php
+        Route::post('user/profile', function () {
+            // Validate the request...
+            return back()->withInput();
+            // 이전 위치로 리다이렉트하면서, 현재 request의 입력값을 세션에 저장
+            // back() 함수는 세션을 사용하기 때문에, 라우트 호출이 web미들웨어 그룹 내에 있거나 세션미들웨어를 적용해야 함
+        });
+        ```
+### 6.2.1. 이름이 지정된 라우트로 리다이렉트
+```php
+return redirect()->route('login'); // redirect()가 인자없이 호출될 때는 Illuminate\Routing\Redirector인스턴스 반환
+// route메소드사용하여 이름이 지정된 라우트에 대한 RedirectResponse 생성 가능
+
+return redirect()->route('profile', ['id' => 1]);
+// 라우트가 인자를 받는 경우 // URI: profile/{id}
+```
+- Eloquent 모델을 통한 파라미터 채우기
+```php
+return redirect()->route('profile', [$user]);
+// 라우트 인자를 Eloquent모델로 채울 때 
+// URI: profile/{id} // $user의 id가 자동으로 추출되어 전달됨
+// Eloquent 모델의 getRouteKey()를 오버라이드하면 id가 아닌 다른 값을 라우트 파라미터에 저장할 수 있음
+```
+
+### 6.2.2. 컨트롤러 액션으로 리다이렉트
+```php
+// action메소드에 컨트롤러@액션명 전달
+return redirect()->action('HomeController@index');
+
+// 컨트롤러 라우트에 파라미터가 필요한 경우 
+return redirect()->action(
+    'UserController@profile', ['id' => 1] // 두번째인자로 전달
+);
+```
+### 6.2.3. 외부 도메인으로 리다이렉트
+```php
+return redirect()->away('https://www.google.com');
+// away()메소드를 호출해서 추가적인 URL 인코딩, 유효성 검사와 확인 과정 없이 RedirectResponse생성가능
+```
+
+### 6.2.4. 세션의 임시데이터와 함께 리다이렉트
+- RedirectResponse 인스턴스 생성하고, 데이터를 세션에 임시저장
+    ```php
+    Route::post('user/profile', function () {
+        return redirect('dashboard')->with('status', 'Profile updated!');
+    });
+    ```
+- 리다이렉션 이후 세션에 임시저장된 데이터 표시
+    ```php
+    // 블레이드 문법 사용
+    @if (session('status')) // 세션에 저장된 데이터 표시
+        <div class="alert alert-success">
+            {{ session('status') }}
+        </div>
+    @endif
+    ```
+
+
+## 6.3. 기타 Responses 타입들
+- contract response
+    - response 헬퍼 함수가 인자 없이 호출되면, Illuminate\Contracts\Routing\ResponseFactory contract의 구현체가 반환
+
+### 6.3.1. View Responses
+```php
+return response()
+            ->view('hello', $data, 200) // view헬퍼함수 사용
+            ->header('Content-Type', $type);
+```
+### 6.3.2. JSON Responses
+- json()메소드
+    -  자동으로 Content-Type 헤더를 application/json으로 설정
+    - PHP json_encode 함수를 사용하여 주어진 배열을 JSON으로 변환
+        ```php
+        return response()->json([
+            'name' => 'Abigail',
+            'state' => 'CA'
+        ]);
+        ```
+- JSONP response 생성
+    - json메소드와 withCallback메소드 조합       
+        ```php
+        return response()
+            ->json(['name' => 'Abigail', 'state' => 'CA'])
+            ->withCallback($request->input('callback'));
+        ```
+
+### 6.3.3. File Downloads
+- download()메소드 
+    - 주어진 경로에 해당하는 파일을 다운로드하게 하는 response를 생성
+    - download(경로, 파일이름, http헤더 배열)
+        ```php
+        return response()->download($pathToFile);
+        return response()->download($pathToFile, $name, $headers);
+        return response()->download($pathToFile)->deleteFileAfterSend();
+        ```
+- Symfony HttpFoundation클래스
+    - 파일다운로드 관리
+    - ASCII형식의 파일이름 지정해야 함
+- 스트리밍 다운로드
+    - 동작의 결과를 저장하지 않고 바로 다운로드가능한 응답으로 반환하는 경우
+    - streamDownload(콜백, 파일이름, 헤더배열); 사용
+    ```php
+    return response()->streamDownload(function () {
+        echo GitHub::api('repo')
+                    ->contents()
+                    ->readme('laravel', 'laravel')['contents'];
+    }, 'laravel-readme.md');
+    ``` 
+### 6.3.4. File Responses
+- file() 메소드
+    - 파일다운로드 없이 브라우저에 이미지, pdf 같은 파일을 표시
+        ```php
+        return response()->file($pathToFile);
+        return response()->file($pathToFile, $headers); // (파일경로,헤더배열)
+        ```
+## 6.4. Response 매크로
+```php
+namespace App\Providers;
+
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\ServiceProvider;
+
+class ResponseMacroServiceProvider extends ServiceProvider
+{
+    public function boot()
+    {
+        // 커스텀 Response정의를 위해 Response파사드의 macro메소드 사용
+        Response::macro('caps', function ($value) {
+            return Response::make(strtoupper($value));
+        }); // macro(매크로명, 클로저); 
+        
+    }
+}
+```
+```php
+// 매크로 등록된 클로저는 response 헬퍼함수를 통해 ResponseFactory 구현객체에서 호출
+return response()->caps('foo'); // 매크로명 caps로 클로저 호출?
+```
+
+
 
 # 7. Views
+## 7.1. 뷰 생성하기
+- 뷰파일 형태
+    ```php
+    <html>
+        <body>
+            <h1>Hello, {{ $name }}</h1>
+        </body>
+    </html>
+    ```
+- resources/views디렉토리에 뷰파일 위치
+- view헬퍼 사용하여 view 반환
+    ```php
+    // 뷰파일이 resources/views/greeting.blade.php로 저장되어 있는 경우
+    Route::get('/', function () {
+        return view('greeting', ['name' => 'James']); 
+        // view(뷰파일명, 뷰에서 사용할 데이터)
+    });
+    ```
+- 중첩된 뷰 디렉토리
+    ```php
+    // resources/views/admin/profile.blade.php 로 디렉토리 중첩된 경우
+    return view('admin.profile', $data); // dot.으로 디렉토리 구분
+    ```
+- 뷰파일 존재여부 확인
+    ```php
+    // View Facades의 exist사용
+    use Illuminate\Support\Facades\View;
+    if (View::exists('emails.customer')) {
+        //
+    }
+    ```
+- 먼저 사용가능한 뷰 파일 사용하기
+    ```php
+    // first 메소드
+    return view()->first(['custom.admin', 'admin'], $data);
+    ```
+    ```php
+    // View Facades의 first사용
+    use Illuminate\Support\Facades\View;
+    return View::first(['custom.admin', 'admin'], $data);
+    ```
+
+## 7.2. 뷰에 데이터 전달하기
+- view()헬퍼함수의 인자로 연관배열 전달
+    ```php
+    return view('greetings', ['name' => 'Victoria']); 
+    // 데이터는 키/값 으로 구성된 배열이어야 함
+    // 뷰 내에서 echo $key;와 같이 키에 해당하는 값에 액세스 가능
+    ```
+- with메소드를 사용하여 개별 데이터 추가
+    ```php
+    return view('greeting')->with('name', 'Victoria'); // 키/값
+    ```
+### 7.2.1. 모든 뷰파일에서 데이터 공유하기
+- View 파사드의 share()메소드 사용
+- 서비스프로바이더의 boot메소드에 구성해놓아야 함
+    ```php
+    namespace App\Providers;
+
+    use Illuminate\Support\Facades\View;
+
+    class AppServiceProvider extends ServiceProvider
+    {
+        //...
+        public function boot()
+        {
+            View::share('key', 'value'); // a모든 뷰파일에서 데이터를 공유할 수 있도록 함
+        }
+    }
+    ```
+## 7.3. 뷰 컴포저
+- 뷰 컴포저 : 뷰 렌더링시 호출되는 콜백 or 클래스메소드
+- 뷰 렌더링할 때마다 전달할 데이터가 있다면 해당 로직을 한 곳에서 구성할 수 있게 해줌
+- 뷰 컴포저 구성
+    1. 서비스 프로바이더에서 뷰 컴포저 구성
+        ```php
+        namespace App\Providers;
+
+        use Illuminate\Support\Facades\View;
+        use Illuminate\Support\ServiceProvider;
+
+        class ViewServiceProvider extends ServiceProvider // ServiceProvider를 통해 뷰 컴포저 구성
+        {
+            //...
+            public function boot()
+            {
+                // View 파사드를 사용하여 Illuminate\Contracts\View\Factory contract구현체에 액세스
+                View::composer( 
+                    'profile', 'App\Http\View\Composers\ProfileComposer'
+                    // profile뷰가 렌더링 될 때마다 ProfileComposer@compose메소드가 실행
+                    // 뷰 컴포저 디렉토리는 임의로 자유럽게 구성 가능
+                );
+                View::composer('dashboard', function ($view) {
+                    //
+                });
+            }
+        }
+        ```
+    2. config/app.php의 providers배열에 해당 서비스 프로바이더 추가
+    3. 뷰 컴포저 클래스 정의
+        ```php
+        namespace App\Http\View\Composers;
+
+        use App\Repositories\UserRepository;
+        use Illuminate\View\View;
+
+        class ProfileComposer // 뷰 컴포저 클래스 
+        {
+            /**
+            * The user repository implementation.
+            *
+            * @var UserRepository
+            */
+            protected $users;
+
+            /**
+            * Create a new profile composer.
+            *
+            * @param  UserRepository  $users
+            * @return void
+            */
+            public function __construct(UserRepository $users) // 뷰컴포저에서 필요한 객체를 타입힌트
+            {
+                // Dependencies automatically resolved by service container...
+                $this->users = $users;
+            }
+
+            /**
+            * Bind data to the view.
+            *
+            * @param  View  $view
+            * @return void
+            */
+            public function compose(View $view) // 
+            {
+                $view->with('count', $this->users->count());
+            }
+            // 뷰 렌더링 전 뷰컴포저의 compose메소드가 Illuminate\View\View 인스턴스와 함께 호출되고, 데이터전달을 위해 with()메소드 사용가능
+        }
+        ```
+- 뷰 컴포저를 다수의 뷰에 적용
+    ```php
+    View::composer(
+        ['profile', 'dashboard'], // 다수의 뷰 배열전달
+        'App\Http\View\Composers\MyViewComposer'
+    );
+
+    View::composer('*', function ($view) { // 모든 뷰에 뷰컴포저 적용
+    });
+    ```
+- 뷰 크리에이터
+    ```php
+    // 뷰컴포저와 유사하지만, 뷰 크리에이터는 뷰가 렌더링되기를 기다리지 않고 인스턴스화 된 다음에 바로 실행
+    View::creator('profile', 'App\Http\View\Creators\ProfileCreator');
+    ```
 
 # 8. URL Generation
+## 8.1. 개요
+## 8.2. 기본 내용
+### 8.2.1. 기본 URL 생성
+- url()헬퍼함수로 URL생성
+- 자동으로 현재 request의 스키마와 호스트를 사용
+```php
+$post = App\Post::find(1);
+echo url("/posts/{$post->id}"); 
+// http://example.com/posts/1
+```
+### 8.2.2. 현재 URL 액세스
+- url()헬퍼함수에 경로미지정시 Illuminate\Routing\UrlGenerator 인스턴스 반환
+    ```php
+    // Get the current URL without the query string...
+    echo url()->current();
+
+    // Get the current URL including the query string...
+    echo url()->full();
+
+    // Get the full URL for the previous request...
+    echo url()->previous();
+    ```
+    ```php
+    use Illuminate\Support\Facades\URL;
+
+    echo URL::current(); // URL Facade로도 액세스 가능
+    ```
+
+## 8.3. 이름이 지정된 라우트 URL
+
+- route() 헬퍼함수 사용
+    ```php
+    // Route::get('/post/{post}', function () {
+    // })->name('post.show'); 
+    // 아래와 같이 사용가능
+
+    echo route('post.show', ['post' => 1]);
+    // http://example.com/post/1
+    // 라우트 이름 지정하여 사용시 라우트에 정의된 실제 URl에 구애받지 않고 URL생성가능 
+    // (라우트 URL변경되어도 route함수 호출 한 곳을 수정할 필요 없음)
+    ```
+    - Eloquent모델의 기본키 사용하여 URL생성
+        ```php
+        // route() 헬퍼함수는 자동으로 모델 post의 기본키를 추출하여 사용하게 됨
+        echo route('post.show', ['post' => $post]);
+        ```
+    - 복수의 파라미터를 가진 라우트 URL생성
+        ```php
+        Route::get('/post/{post}/comment/{comment}', function () {
+            //
+        })->name('comment.show');
+
+        echo route('comment.show', ['post' => 1, 'comment' => 3]);
+
+        // http://example.com/post/1/comment/3
+        ```
+### 8.3.1. Signed URLs
+- Signed URLs
+    - signed hash가 쿼리 스트링 뒤에 추가되어, URL 생성 이후 수정되지 않았음을 확인 가능
+    - 공개적으로 액세스 가능하지만, 조작으로부터 보호가 필요한 경우 유용
+- 이름이 지정된 named 라우트에 서명이 적용된 signed URL을 쉽게 생성가능
+    ```php
+    // URL 파사드의 signedRoute메소드 사용 가능
+    use Illuminate\Support\Facades\URL;
+    return URL::signedRoute('unsubscribe', ['user' => 1]);
+    ```
+    ```php
+    // temporarySignedRoute 메소드를 사용해 임시생성 후 만료되는 signed URL 생성 가능
+    use Illuminate\Support\Facades\URL;
+    return URL::temporarySignedRoute(
+        'unsubscribe', now()->addMinutes(30), ['user' => 1]
+    );
+    ```
+- Signed URLs에 대한 Request Validating
+    - 방법1. 유입되는 request에 유효한 sign이 있는지 검증하기 위해 request에 hasValidSignature() 메소드를 호출함
+        ```php
+        use Illuminate\Http\Request;
+
+        Route::get('/unsubscribe/{user}', function (Request $request) {
+            if (! $request->hasValidSignature()) { // Signed URLs에 대한 Request Validating
+                abort(401);
+            }
+            // ...
+        })->name('unsubscribe');
+        ```
+    - 방법2. 라우트에 ValidateSignature 미들웨어를 지정
+        ```php
+        // HTTP 커널의 routeMiddleware 배열에 미들웨어를 등록
+        protected $routeMiddleware = [
+            'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
+        ];
+        ```
+        ```php
+        // 라우트에 Illuminate\Routing\Middleware\ValidateSignature 미들웨어를 지정
+        Route::post('/unsubscribe/{user}', function (Request $request) {
+            // ...
+        })->name('unsubscribe')->middleware('signed');
+        ```
+
+## 8.4. 컨트롤러 액션 URL
+- action() 함수 : 주어진 컨트롤러 액션에 대한 URL생성
+    ```php
+    $url = action('HomeController@index'); 
+    ```
+    ```php
+    use App\Http\Controllers\HomeController;
+    $url = action([HomeController::class, 'index']); // callable 배열 문법을 통해 액션을 참조하도록 함 // HomeController클래스의 index 메소드를 참조
+    ```
+    ```php
+    $url = action('UserController@profile', ['id' => 1]); // 라우트 파라미터 인자 전달가능
+    ```
+
+## 8.5. 기본값
+- 특정 URL 파라미터에 request 전 기본값 지정 가능
+    ```php
+    Route::get('/{locale}/posts', function () {
+    })->name('post.index');
+    ```
+    ```php
+    // 라우트 미들웨어에서 기본값 지정
+    namespace App\Http\Middleware;
+
+    use Closure;
+    use Illuminate\Support\Facades\URL;
+
+    class SetDefaultLocaleForUrls
+    {
+        public function handle($request, Closure $next)
+        {
+            //  URL::defaults 파사드 메소드를 이용하여, request마다 적용될 {locale} 파라미터의 기본값 설정
+            URL::defaults(['locale' => $request->user()->locale]);
+            return $next($request);
+        }
+    }
+    ```
+
 
 # 9. Session
+## 9.1. 시작하기
+### 9.1.1. 설정하기
+### 9.1.2. 드라이버 사전준비사항
+
+## 9.2. 세션 사용
+### 9.2.1. 데이터 조회
+### 9.2.2. 데이터 저장
+### 9.2.3. 데이터 임시저장
+### 9.2.4. 데이터 삭제
+### 9.2.5. 세션 ID 다시 생성
+
+## 9.3. 사용자 정의 세션 드라이버 추가
+### 9.3.1. 드라이버 구현
+### 9.3.2. 드라이버 등록
+
 
 # 10. Validation
 
