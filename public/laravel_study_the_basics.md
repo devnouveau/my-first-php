@@ -406,7 +406,7 @@ $action = Route::currentRouteAction();
     protected $middlewareGroups = [
         // 미들웨어그룹이름 => [미들웨어 클래스들]
         'web' => [  
-            
+            //web미들웨어 그룹은 자동으로 RouteServiceProvider에 의해 routes/web.php에 적용됨
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
@@ -432,8 +432,6 @@ $action = Route::currentRouteAction();
     // 3. middelware()메소드의 인자로 그룹이름 배열넘겨주고, group()메소드 체이닝해서 라우터 그룹에 할당하는 방식
     Route::middleware(['web', 'subscribed'])->group(function () { 
     });
-
-    //web미들웨어 그룹은 자동으로 RouteServiceProvider에 의해 routes/web.php에 적용됨
     ```
 
 
@@ -898,28 +896,28 @@ class UserController extends Controller
 }
 ```
 - 의존성 주입 & 라우트 파라미터
-```php
-Route::put('user/{id}', 'UserController@update'); // 라우트 파리미터를 받는 경우
-```
-```php
-namespace App\Http\Controllers;
+    ```php
+    Route::put('user/{id}', 'UserController@update'); // 라우트 파리미터를 받는 경우
+    ```
+    ```php
+    namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+    use Illuminate\Http\Request;
 
-class UserController extends Controller
-{
-    public function update(Request $request, $id) // Illuminate\Http\Request를 타입힌트 하면서 동시에 라우트 파라미터 {id}에 접근가능
+    class UserController extends Controller
     {
+        public function update(Request $request, $id) // Illuminate\Http\Request를 타입힌트 하면서 동시에 라우트 파라미터 {id}에 접근가능
+        {
+        }
     }
-}
-```
+    ```
 - 라우트 클로저를 통해서 Request 액세스하기
-```php
-use Illuminate\Http\Request;
+    ```php
+    use Illuminate\Http\Request;
 
-Route::get('/', function (Request $request) { // 라우트 클로저에서도 Illuminate\Http\Request를 타입힌트하여 의존성 주입 가능
-});
-```
+    Route::get('/', function (Request $request) { // 라우트 클로저에서도 Illuminate\Http\Request를 타입힌트하여 의존성 주입 가능
+    });
+    ```
 
 
 ### 5.1.1. Request 경로 & 메소드
@@ -1739,22 +1737,745 @@ echo url("/posts/{$post->id}");
 # 9. Session
 ## 9.1. 시작하기
 ### 9.1.1. 설정하기
+- config/session.php로 설정파일이 저장
+- 기본적으로 file세션 드라이버를 사용하도록 설정되어 있음 (실서비스시 memcached or redis 드라이버 사용 권장)
+- session driver 설정옵션 (request에 따른 세션을 어디에 저장할지 정의)
+    - file : storage/framework/sessions 디렉토리에 세션을 저장합니다.
+    - cookie : 암호화된 쿠키를 사용하여 안전하게 세션을 저장할 것입니다.
+    - database : 세션이 관계형 데이터베이스에 저장된다.
+    - memcached / redis : 빠르고, 캐시를 기반으로한 memcached, redis 에 저장합니다.
+    - array : 세션은 PHP 배열에 저장되며 세션이 지속되지 않습니다. (테스트 진행시 사용)
 ### 9.1.2. 드라이버 사전준비사항
+- Database 세션 드라이버 사용시
+    - 세션 저장 테이블 생성코드 (migration클래스내 정의)
+        ```php
+        // Schema파사드의 create()메소드 사용하여 테이블 생성
+        Schema::create('sessions', function ($table) {
+            $table->string('id')->unique();
+            $table->unsignedInteger('user_id')->nullable();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->text('payload');
+            $table->integer('last_activity');
+        });
+        ```
+    - 마이그레이션 실행
+        ```bash
+        $ php artisan session:table
+        $ php artisan migrate
+        ```
 
+- Redis 세션 드라이버 사용시
+    - PECL을 통해 PhpRedis 확장모듈 설치 or Composer로 predis/predis 패키지 (~ 1.0) 설치해야 사용가능
+    - session 설정 파일 내 connection옵션을 통해 세션에서 사용할 Redis연결 지정가능
 ## 9.2. 세션 사용
-### 9.2.1. 데이터 조회
-### 9.2.2. 데이터 저장
-### 9.2.3. 데이터 임시저장
-### 9.2.4. 데이터 삭제
+### 9.2.1. 세션 데이터 조회
+- 세션데이터 조작 방법1. Request인스턴스 사용
+    ```php
+    namespace App\Http\Controllers;
+
+    use App\Http\Controllers\Controller;
+    use Illuminate\Http\Request;
+
+    class UserController extends Controller
+    {
+        public function show(Request $request, $id) // Request의존성주입
+        {
+            // reqeust를 통해 세션에 접근
+
+            /******** get() : key로 세션값 접근 ********/
+            $value = $request->session()->get('key'); // get메소드의 두 번째 인자로 키 존재하지 않을 경우 사용할 기본값 지정 가능(클로저도 지정가능)
+            
+
+            /******** all() : 모든 세션 데이터 조회 ********/
+            $data = $request->session()->all(); // 
+            
+            /******** has() : 세션아이템 존재여부 확인 ********/
+            if ($request->session()->has('users')) {
+            } // 아이템존재여부와 아이템 값의 null여부 검사
+
+            /******** exists() : 세션아이템 존재여부 확인 ********/
+            if ($request->session()->exists('users')) {
+            } // 아이템존재여부만 검사(null값이어도 true)
+        }
+    }
+    ```
+- 세션데이터 조작 방법2. session()헬퍼함수 사용
+    ```php
+    Route::get('home', function () {
+        // Retrieve a piece of data from the session...
+        $value = session('key'); // 키에해당하는 세션 값 반환
+
+        // Specifying a default value... 
+        $value = session('key', 'default');
+
+        // Store a piece of data in the session...
+        session(['key' => 'value']); // 키=>값 배열로 전달시 세션에 데이터 저장
+    });
+    ```
+- 두 방법 모두 테스트케이스에서 assertSessionHas() 메소드를 이용해 테스트 가능
+
+
+### 9.2.2. 세션 데이터 저장
+- 방법1. Request인스턴스 사용
+    ```php
+    // put()메소드로 세션데이터 저장
+    $request->session()->put('key', 'value'); 
+
+    // 세션에 저장된 배열에 값 추가
+    $request->session()->push('user.teams', 'developers');
+
+    // 세션에서 아이템 가져오면서 삭제
+    $value = $request->session()->pull('key', 'default');
+    ```
+
+- 방법2. session()헬퍼함수 사용
+    ```php
+    session(['key' => 'value']);
+    ```
+
+
+
+### 9.2.3. 세션 데이터 임시저장
+- 다음 request에서만 사용하기 위한 값을 세션에 임시저장
+    ```php
+    $request->session()->flash('status', 'Task was successful!');
+    ```
+- 임시데이터를 좀 더 오래 유지하는 경우
+    ```php
+    $request->session()->reflash();
+
+    // 특정 임시 데이터만을 유지
+    $request->session()->keep(['username', 'email']);
+    ```
+### 9.2.4. 세션 데이터 삭제
+    ```php
+    // 세션에서 특정 데이터(들) 삭제
+    $request->session()->forget('key');
+    $request->session()->forget(['key1', 'key2']);
+
+    $request->session()->flush(); // 세션에서 모든 데이터 삭제
+    ```
 ### 9.2.5. 세션 ID 다시 생성
+- 세션 fixation 방지를 위해 재생성
+- 세션ID 수동으로 재생성시 (라라벨 LoginController는 인증과정에서 세션ID 자동으로 재생성)
+    ```php
+    $request->session()->regenerate();
+    ```
 
 ## 9.3. 사용자 정의 세션 드라이버 추가
 ### 9.3.1. 드라이버 구현
-### 9.3.2. 드라이버 등록
+```php
+namespace App\Extensions; // SessionHandler를 다른 디렉토리에 생성하는 것도 가능
+class MongoSessionHandler implements \SessionHandlerInterface
+// 사용자정의 세션드라이버는 SessionHandlerInterface를 구현해야 함
+{
+    /******* 구현해야 할 메소드 *******/ 
+    public function open($savePath, $sessionName) {}
+    // 일반적으로 파일기반의 세션저장 시스템에서 사용. 라라벨이 file 세션드라이버제공하기 때문에 비어있는 형태로 구성가능
+    public function close() {} 
+    // 대부분의 드라이버에서 필요X
+    
+    public function read($sessionId) {}
+    // 주어진 $sessionId에 해당하는 세션데이터를 직렬화한 문자열 반환(라라벨이 알아서 처리)
+    public function write($sessionId, $data) {}
+    // 세션데이터 문자열을 db 등에 저장(라라벨이 알아서 처리)
 
+    public function destroy($sessionId) {} // 주어진 데이터 삭제
+    public function gc($lifetime) {} // $lifetime보다 오래된 세션데이터 제거. 메소드비워둠
+}
+```
+### 9.3.2. 드라이버 등록
+- 세션 드라이버 구현 후 ServiceProvider에서 드라이버 등록 필요
+```php
+namespace App\Providers;
+
+use App\Extensions\MongoSessionHandler;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\ServiceProvider;
+
+class SessionServiceProvider extends ServiceProvider
+{
+    public function register()
+    {
+        //
+    }
+    public function boot()
+    {
+        Session::extend('mongo', function ($app) {
+            // Return implementation of SessionHandlerInterface...
+            return new MongoSessionHandler;
+        });
+        // 드라이버 추가시 Session파사드의 extend() 사용
+    }
+}
+```
 
 # 10. Validation
+## 10.1. 시작하기
+라라벨은 http request의 유효성 검사를 위해 ValidatesRequests Trait를 사용함
+## 10.2. form 유효성검사 예제
+### 10.2.1. 라우트 정의하기
+```php 
+// routes/web.php는 웹미들웨어 그룹이 적용되어 ShareErrorsFromSession미들웨어로 자동으로 에러페이지와 연결되게 됨
+Route::get('post/create', 'PostController@create'); //  글 작성페이지
+Route::post('post', 'PostController@store'); // 글 등록처리
+```
+
+### 10.2.2. 컨트롤러 생성하기
+```php
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+class PostController extends Controller
+{
+    /**
+    * Show the form to create a new blog post.
+    *
+    * @return Response
+    */
+    public function create()
+    {
+        return view('post.create');
+    }
+
+    /**
+    * Store a new blog post.
+    *
+    * @param  Request  $request
+    * @return Response
+    */
+    public function store(Request $request)
+    {
+        // Validate and store the blog post...
+    }
+}
+```
+
+### 10.2.3. 유효성 검사 로직 작성하기
+- Illuminate\Http\Request 객체의 validate()메소드 사용
+- 유효성 검사 통과시 다음로직 정상실행
+- 미통과시 exception thrown 하고 오류 response and 리다이렉트
+- (ajax reqeust의 경우 HTTP 422코드로 JSON응답생성)
+```php
+class PostController extends Controller
+{
+    //...
+    public function store(Request $request)
+    {
+        $validatedData = $request->validate([
+            /** 유효성 검사 규칙을 validate()의 인자로 전달 **/
+            'title' => 'required|unique:posts|max:255',
+            'body' => 'required',
+
+            /** 아래와 같이 배열로 전달하는 것도 가능 **/
+            //'title' => ['required', 'unique:posts', 'max:255'],
+            //'body' => ['required'],
+
+            /** bail규칙으로 유효성 검사 처음 실패시 검사 중단하도록 하기 **/
+            //'title' => 'bail|required|unique:posts|max:255',
+            //'body' => 'required',
+
+            /** 중첩된 파라미터에 대한 유효성 검사규칙 **/
+            //'title' => 'required|unique:posts|max:255',
+            //'author.name' => 'required', // dot.으로 구분
+            //'author.description' => 'required',
+        ]);
+
+        // The blog post is valid...
+    }
+}
+```
+
+### 10.2.4. 유효성 검사 에러 표시하기
+- 유효성 검사 에러는 세션에 임시저장
+- 세션에 $errors가 저장되어 있다면 뷰에 자동으로 연결
+- $errors는 web미들웨어 그룹에 의해 제공되는 Illuminate\View\Middleware\ShareErrorsFromSession미들웨어에 의해 뷰와 연결 
+- ShareErrorsFromSession미들웨어 지정시 $errors변수 항상 사용가능
+- $errors변수는 Illuminate\Support\MessageBag의 인스턴스
+    ```php
+    <!-- /resources/views/post/create.blade.php -->
+    <h1>Create Post</h1>
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    <!-- Create Post Form -->
+    ```
+- @error지시어
+    ```php
+    <label for="title">Post Title</label>
+    <input id="title" type="text" class="@error('title') is-invalid @enderror">
+    @error('title') // 속성에 대한 유효성검사 오류메시지가 있는지 빠르게 확인 가능
+        <div class="alert alert-danger">{{ $message }}</div>
+    @enderror
+    ```
+
+
+### 10.2.5. 유효성검사 규칙 옵션 필드에 대한 주의사항
+```php
+// TrimStrings, ConvertEmptyStringsToNull 미들웨어가 글로벌미들웨어로 적용되기 때문에, null을 허용할 필드는 nullable을 표기해줘야 함 
+$request->validate([
+    'title' => 'required|unique:posts|max:255',
+    'body' => 'required',
+    'publish_at' => 'nullable|date', // 값이 null이거나 date타입
+]);
+```
+
+
+
+
+## 10.3. Form Request 유효성 검사
+- 폼리퀘스트는 컨트롤러 메소드 호출 전에 유효성검사를 수행함
+- form request클래스는 라라벨의 베이스 request클래스를 상속
+### 10.3.1. Form Request클래스 생성하기
+- 복잡한 유효성 검사를 위해 유효성검사 로직을 가진 form request클래스를 생성
+    ```bash
+    $ php artisan make:request StoreBlogPost
+    ```
+- App/Http/Requests 디렉토리에 form request클래스가 저장
+    ```php
+    public function rules() // form request클래스의 유효성검사규칙메소드
+    {
+        return [ // 유효성검사규칙 반환
+            'title' => 'required|unique:posts|max:255',
+            'body' => 'required',
+        ];
+    }
+    ```
+- 유효성 검사 규칙 실행
+    - 컨트롤러 메소드에 폼리퀘스트 객체를 타입힌트
+    - 폼리퀘스트는 컨트롤러 메소드 호출 전에 유효성검사를 수행
+    ```php
+    // 컨트롤러 메소드
+    public function store(StoreBlogPost $request) 
+    {
+        // The incoming request is valid...
+
+        // Retrieve the validated input data...
+        $validated = $request->validated(); 
+        // 여기엔 유효성검사 로직이 별도로 포함되지 않음
+    }
+    ```
+- Form Request 에 After 후킹 추가하기
+    ```php
+    /**
+    * Configure the validator instance.
+    *
+    * @param  \Illuminate\Validation\Validator  $validator
+    * @return void
+    */   
+    public function withValidator($validator)
+    // withValidator()는 생성된 validator객체를 전달받음
+    // validator instance 생성 후, 유효성 검사 수행 전에
+    // validator의 메소드를 호출할 수 있게 해줌
+    {
+        $validator->after(function ($validator) { 
+            if ($this->somethingElseIsInvalid()) {
+                $validator->errors()->add('field', 'Something is wrong with this field!');
+            }
+        });
+    }
+    ```
+
+### 10.3.2. Form Requests 사용자 승인
+- Form Requests의 authorize()메소드
+    ```php
+    public function authorize()
+    {
+        // 인증된 사용자가 리소스에 대한 권한이 있는지 확인가능
+        $comment = Comment::find($this->route('comment'));
+
+        return $comment && $this->user()->can('update', $comment);
+        // 현재 인증된 사용자에 액세스하기 위해 user()메소드 사용가능 (모든 form request클래스는 라라벨의 베이스 request클래스를 상속하기 때문)
+    }
+    ```
+    ```php
+    Route::post('comment/{comment}'); 
+    // authorize()메소드가 false리턴시 403 http응답 반환, 컨트롤러 메소드 실행되지 않음
+    // 다른 인증로직을 사용하려면 authorize()에서 true리턴하도록 하면됨
+    ```
+### 10.3.3. 에러 메세지 사용자 정의하기
+```php
+public function messages()
+{
+    return [ // from request의 에러메시지를 커스터마이징
+        'title.required' => 'A title is required',
+        'body.required'  => 'A message is required',
+    ];
+}
+```
+
+### 10.3.4. 유효성 검사 속성 사용자 정의하기
+```php
+public function attributes()
+{
+    return [ // 유효성 검사 메시지의 :attribute 속성이름을 커스텀
+        'email' => 'email address',
+    ];
+}
+```
+
+## 10.4. Validators 수동으로 생성하기
+```php
+namespace App\Http\Controllers;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class PostController extends Controller
+{
+    public function store(Request $request)
+    {
+        // Validator 파사드의 make메소드로 새로운 validator인스턴스 생성하기 
+        $validator = Validator::make($request->all(), [
+            'title' => 'required|unique:posts|max:255',
+            'body' => 'required',
+        ]); // Validator::make(유효성검사대상데이터, 검사규칙)
+
+
+        // 리다이렉트 로직을 매뉴얼하게 추가 
+        if ($validator->fails()) { // 검사 실패확인
+            return redirect('post/create') 
+                        ->withErrors($validator) // 에러msg를 세션에 임시저장(flash)
+                        ->withInput(); // 현재 입력데이터와 함께 리다이렉트 
+        }
+
+        // Store the blog post...
+    }
+}
+```
+
+### 10.4.1. 자동으로 리다이렉트하기
+```php
+Validator::make($request->all(), [
+    'title' => 'required|unique:posts|max:255',
+    'body' => 'required',
+])->validate(); // Validator 파사드를 이용해 validator객체를 생성하는 경우에도, 라라벨 기본 Redirect객체의 validate()함수처럼 자동으로 유효성검사 미통과시 자동 리다이렉트 시켜주는 validate()사용가능
+```
+
+### 10.4.2. 이름이 지정된 Error Bags
+- 에러 메시지가 저장되는 Error Bags에 이름 지정 가능
+- 이름 지정시 한 페이지의 여러 form 중 특정 form에 맞는 에러 메시지 조회가능
+    ```php
+    return redirect('register')
+            ->withErrors($validator, 'login'); 
+            // withErrors의 두번째 인자로 Error Bags의 이름을 전달
+            // $validator 객체 생성시 request로부터 특정 form데이터를 받아오기 때문에
+    ```
+    ```php
+    {{ $errors->login->first('email') }} // MessageBag인스턴스에 지정된 이름으로 접근
+    ```
+### 10.4.3. 유효성 검사 이후에 후킹하기
+- Form Request의 after 후킹은 validator객체 생성 후, 유효성 검사 전에 수행. Validator파사드로 생성된 validator객체의 after 후킹은 유효성 검사 이후에 수행?
+    ```php
+    $validator = Validator::make(...);
+
+    $validator->after(function ($validator) { // 유효성검사 이후에 호출될 콜백
+        if ($this->somethingElseIsInvalid()) {
+            $validator->errors()->add('field', 'Something is wrong with this field!');
+        }
+    });
+
+    if ($validator->fails()) {
+        //
+    }
+    ```
+
+## 10.5.에러 메세지 작업하기
+Validator인스턴스의 errors()메소드 호출시, MessageBag인스턴스 반환받아 오류 메시지를 편리하게 처리 가능
+- 하나의 필드에 대한 첫 번째 에러메세지 얻기
+    ```php
+    $errors = $validator->errors();
+    echo $errors->first('email'); // first()
+    ```
+- 하나의 필드에 대한 모든 에러메세지 얻기
+    ```php
+    foreach ($errors->get('email') as $message) { // foreach get()
+    }
+
+    // 배열형태의 form필드인 경우
+    foreach ($errors->get('attachments.*') as $message) {
+    } // attachments 배열 필드의 *모든 아이템
+    ```
+- 모든 필드에 대한 모든 에러메세지 얻기
+    ```php
+    foreach ($errors->all() as $message) { // foreach all()
+        //
+    }
+    ```
+- 하나의 필드에 대해 에러메세지 존재여부 확인
+    ```php
+    if ($errors->has('email')) { // has()
+        //
+    }
+    ```
+### 10.5.1. 사용자 정의 에러 메세지
+- 방법1. Validator::make()에 세번째 인자로 에러메세지 전달하기
+    ```php
+    $messages = [
+        'required' => 'The :attribute field is required.',
+    ];
+    $validator = Validator::make($input, $rules, $messages);
+    ```
+    - :attribute 플레이스홀더는 유효성검사대상 필드이름으로 대체됨
+    - 사용가능한 플레이스홀더들
+        ```php
+        $messages = [ 
+            'same'    => 'The :attribute and :other must match.',
+            'size'    => 'The :attribute must be exactly :size.',
+            'between' => 'The :attribute value :input is not between :min - :max.',
+            'in'      => 'The :attribute must be one of the following types: :values',
+        ];
+        ```
+    - 특정 필드에 대해서만 커스텀 오류 메세지 지정
+        ```php
+        $messages = [
+            'email.required' => 'We need to know your e-mail address!',
+        ]; // dot. 표기법으로 특정필드, 특정규칙에 메세지 지정가능
+        ```
+
+- 방법2. 언어 파일에 커스텀 메세지 지정하기
+    ```php
+    // resources/lang/xx/validation.php 언어파일의 custom배열에 지정
+    'custom' => [
+        'email' => [
+            'required' => 'We need to know your e-mail address!',
+        ],
+    ],
+    ```
+    - 언어 파일에서 사용자 값 지정
+        ```php
+        $request->validate([
+            'credit_card_number' => 'required_if:payment_type,cc'
+        ]);
+        // 검사 미통과시 메세지
+        // The credit card number field is required when payment type is cc.
+        ```
+        ```php
+        // validation.php 언어파일에서 실제유형값을 사용자 정의 값으로 변경가능 
+        'values' => [
+            'payment_type' => [
+                'cc' => 'credit card'
+            ],
+        ],
+        // 적용 후
+        // 검사 미통과시 메세지
+        // The credit card number field is required when payment type is credit card.
+        ```
+### 10.5.2. 사용가능한 유효성 검사 규칙
+[docs 참조](https://laravel.kr/docs/6.x/validation#available-validation-rules)
+
+## 10.6. 조건부로 규칙 추가하기
+- 필드가 입력값 배열에 존재할때만 유효성 검사하기
+    ```php
+    $v = Validator::make($data, [ 
+        'email' => 'sometimes|required|email', // sometimes 규칙 추가
+    ]);
+    ```
+- 복잡한 조건부 유효성 검사
+    ```php
+    // validator 인스턴스 생성
+    $v = Validator::make($data, [
+        'email' => 'required|email',
+        'games' => 'required|numeric',
+    ]);
+    ```
+    ```php
+    // 생성된 인스턴스에 조건부로 유효성 규칙 추가
+    // sometimes(필드이름, 규칙, 클로저) 메소드 사용
+    // 클로저가 true 반환시 규칙이 추가됨
+    $v->sometimes('reason', 'required|max:500', function ($input) {
+        // Closure에 전달된  $input은 Illuminate\Support\Fluent의 인스턴스
+        return $input->games >= 100;
+    });
+    // 여러 필드에 한 번에 적용도 가능
+    // $v->sometimes(['reason', 'cost'], 
+    ```
+
+## 10.7. 배열입력필드 유효성 검사
+- 배열형태의 입력필드에 유효성 속성 지정시 dot.표기법 사용
+    ```php
+    $validator = Validator::make($request->all(), [
+        'photos.profile' => 'required|image', // photos[profile] 필드에 유효성 규칙 적용
+    ]);
+    ```
+    ```php
+    $validator = Validator::make($request->all(), [
+        'person.*.email' => 'email|unique:users',
+        'person.*.first_name' => 'required_with:person.*.last_name',
+    ]);
+    ```
+- validation.php언어 파일에서 배열형태 입력필드에 대한 오류 메세지 지정가능
+    ```php
+    'custom' => [
+        'person.*.email' => [
+            'unique' => 'Each person must have a unique e-mail address',
+        ]
+    ],
+    ```
+
+
+
+## 10.8. 사용자 정의 유효성 검사 규칙
+### 10.8.1. Rule 객체 사용하여 커스텀 유효성검사 규칙 등록
+Rule객체 : 커스텀 유효성 검사 규칙 객체
+1. Rule 객체 생성 (artisan 명령어)
+    ```bash 
+    # app/Rules 디렉토리에 rule객체를 생성
+    $ php artisan make:rule Uppercase 
+    # 문자열이 대문자로 구성되었는지 확인하는 rule생성
+    ```
+2. 유효성 검사 동작 방식 정의 (passes(), message())
+    ```php
+    namespace App\Rules;
+
+    use Illuminate\Contracts\Validation\Rule;
+
+    class Uppercase implements Rule
+    {
+        /**
+        * Determine if the validation rule passes.
+        *
+        * @param  string  $attribute
+        * @param  mixed  $value
+        * @return bool
+        */
+        public function passes($attribute, $value)
+        {   // 속성명과 속성값을 받아, 유효성 규칙 검사하여 true/false반환
+            return strtoupper($value) === $value;
+        }
+
+        /**
+        * Get the validation error message.
+        *
+        * @return string
+        */
+        public function message()
+        {
+            // 유효성 검사 미통과시 메세지 반환
+            return 'The :attribute must be uppercase.';
+            
+            // trans()헬퍼함수를 사용하여,
+            // validation.php 언어 파일의 에러메세지 반환 가능
+
+            // return trans('validation.uppercase');
+    }
+    ```
+3. validator에 rule 객체 추가
+    ```php
+    use App\Rules\Uppercase; // Rule객체
+
+    $request->validate([
+        'name' => ['required', 'string', new Uppercase],
+    ]);
+    ```
+
+### 10.8.2. 클로저 사용하여 커스텀 유효성검사 규칙 등록
+사용자 정의 규칙 기능이 한 번만 필요한 경우 클로저 사용
+```php
+// validator생성시 유효성 규칙배열에서 정의
+$validator = Validator::make($request->all(), [
+    'title' => [
+        'required',
+        'max:255',
+        function ($attribute, $value, $fail) { // 속성명, 값, 유효성 검사 미통과시 호출될 콜백
+            if ($value === 'foo') {
+                $fail($attribute.' is invalid.');
+            }
+        },
+    ],
+]);
+```
+### 10.8.3. 확장기능 사용하여 커스텀 유효성검사 규칙 등록
+- Validator 파사드의 extend() 메소드 사용
+    ```php
+    namespace App\Providers;
+
+    use Illuminate\Support\ServiceProvider;
+    use Illuminate\Support\Facades\Validator;
+
+    class AppServiceProvider extends ServiceProvider //ServiceProvider 내에서 사용
+    {
+        //...
+        public function boot()
+        {   
+            // 사용자 정의 유효성 검사 규칙을 등록
+            Validator::extend('foo', function ($attribute, $value, $parameters, $validator) {  // 클로저는 검사대상 필드명, 필드값, 검사규칙에 전달할 파라미터, Validator인스턴스를 인자로 받음
+                return $value == 'foo';
+            });
+
+
+            // 클로저 대신 클래스명@메소드명을 전달하는 것도 가능
+            // Validator::extend('foo', 'FooValidator@validate');
+        }
+    }
+    ```
+- 에러 메세지 정의하기
+    - 추가 방법은 10.5.1. 사용자 정의 에러 메세지 참고
+        ```php
+        // 특정 유효성규칙속성에 대한 에러메세지 추가 
+        "foo" => "Your input was invalid!",
+        "accepted" => "The :attribute must be accepted.",
+        ```
+    - 에러메세지의 커스텀 플레이스홀더 정의
+        ```php
+        /**
+         * Bootstrap any application services.
+        *
+        * @return void
+        */
+        public function boot()
+        {
+            Validator::extend(...);
+
+            // Validator파사드의 replacer()메소드 호출
+            Validator::replacer('foo', function ($message, $attribute, $rule, $parameters) {
+                return str_replace(...);
+            });
+        }
+        ```
+- 묵시적 확장
+    - 유효성검사를 받는 필드가 없거나 빈 문자열인경우 검사규칙시행불가
+        ```php
+        $rules = ['name' => 'unique:users,name'];
+        $input = ['name' => ''];
+        Validator::make($input, $rules)->passes(); // true
+        ```
+    - Validator::extendImplicit()메소드를 사용하여, 속성이 비었을 때도 규칙이 실행되도록 함 (속성값이 필요함을 내포시킴)
+        ```php
+        // Validator::extendImplicit()메소드로 묵시적 확장
+        Validator::extendImplicit('foo', function ($attribute, $value, $parameters, $validator) {
+            return $value == 'foo';
+        });
+        ```
+- 묵시적 규칙 객체
+    - 속성이 비어있을 때 규칙 객체를 실행하려면 Illuminate\Contracts\Validation\ImplicitRule 인터페이스를 구현해야 함
+
+
 
 # 11. Error Handling
+
+## 11.1. 시작하기
+
+## 11.2. 설정하기
+
+## 11.3. Exception Handler
+### 11.3.1. Report 메소드
+### 11.3.2. Render 메소드
+### 11.3.3. Reportable & Renderable Exceptions
+
+## 11.4. Http Exceptions
+### 11.4.1. 커스텀-사용자 지정 HTTP 에러 페이지
+
+
 
 # 12. Logging

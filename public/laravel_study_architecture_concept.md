@@ -223,7 +223,7 @@ Route::get('/', function (ContainerInterface $container) { // 서비스컨테이
     ```php
     // bindings, singletons 속성
     ...
-        public $bindings = [ // 모든 컨테이너 바인딩이 등록됨
+    public $bindings = [ // 모든 컨테이너 바인딩이 등록됨
         ServerProvider::class => DigitalOceanServerProvider::class,
     ];
 
