@@ -2463,19 +2463,296 @@ $validator = Validator::make($request->all(), [
 
 
 # 11. Error Handling
-
 ## 11.1. 시작하기
+모든 예외는 App\Exceptions\Handler클래스에 의해 로그를 남기고 response
 
 ## 11.2. 설정하기
+- config/app.php의 debug옵션으로 에러를 어느정도로 노출할지 설정
+- debug옵션은 기본적으로 .env파일의 APP_DEBUG환경변수에 의해 결정
 
-## 11.3. Exception Handler
-### 11.3.1. Report 메소드
-### 11.3.2. Render 메소드
+## 11.3. Exception Handler 클래스
+### 11.3.1. Report() 메소드
+- 예외를 로깅하거나 외부서비스로 전송
+- 기본적으로 예외가 기록되는 기본클래스에 예외를 전달
+- 원하는 경우에만 예외기록하는 것도 가능
+    ```php
+    public function report(Exception $exception)
+    {
+        
+        // 예외클래스 종류에 따라 예외기록을 다르게
+        // instanceof로 검사하는 대신 reportable exceptions를 사용가능
+        if ($exception instanceof CustomException) { 
+            //
+        }
+        parent::report($exception);
+    }
+    ```
+- 글로벌 로그 컨텍스트
+    ```php
+    // 라라벨은 사용자 ID를 자동으로 모든 예외로그에 컨텍스트 데이터로 추가함
+    // 컨텍스트 데이터로 추가하고 싶은 것을 재정의할 수 있음
+    protected function context()
+    {
+        return array_merge(parent::context(), [ // 모든 예외로그에 추가됨
+            'foo' => 'bar',
+        ]);
+    }
+    ```
+- report() 헬퍼함수
+    ```php
+    public function isValid($value)
+    {
+        try {
+            // Validate the value...
+        } catch (Exception $e) {
+            report($e); // 에러페이지 렌더링 없이 예외를 빠르게 보고함
+
+            return false;
+        }
+    }
+    ```
+- 예외무시 : $dontReport 속성
+    ```php
+    protected $dontReport = [ // 해당 예외들은 로그에 기록되지 않음(e.g.404에러)
+        \Illuminate\Auth\AuthenticationException::class,
+        \Illuminate\Auth\Access\AuthorizationException::class,
+        \Symfony\Component\HttpKernel\Exception\HttpException::class,
+        \Illuminate\Database\Eloquent\ModelNotFoundException::class,
+        \Illuminate\Validation\ValidationException::class,
+    ];
+    ```
+
+### 11.3.2. Render() 메소드
+- 예외를 HTTP response로 변환하고 브라우저에 전달
+- 기본적으로 응답을 생성하는 기본클래스에 예외를 전달
+- 예외유형별로 지정된 응답반환하는 것도 가능
+    ```php
+    public function render($request, Exception $exception)
+    {
+        if ($exception instanceof CustomException) {
+            return response()->view('errors.custom', [], 500);
+        }
+        return parent::render($request, $exception);
+    }
+    ```
+
 ### 11.3.3. Reportable & Renderable Exceptions
+- report(), render()에서 예외타입을 확인하는대신 사용자정의 예외에 report(), render()메소드 정의가능
+- 이 메소드 존재시 프레임워크에서 자동으로 호출
+    ```php
+    namespace App\Exceptions;
 
+    use Exception;
+
+    class RenderException extends Exception // 예외클래스 상속하여 직접 예외정의
+    {
+        /**
+        * Report the exception.
+        *
+        * @return void
+        */
+        public function report()
+        {
+            //
+        }
+
+        /**
+        * Render the exception into an HTTP response.
+        *
+        * @param  \Illuminate\Http\Request  $request
+        * @return \Illuminate\Http\Response
+        */
+        public function render($request)
+        {
+            return response(...);
+        }
+    }
+    ```
 ## 11.4. Http Exceptions
+- 404, 500 등 HTTP오류 응답을 반환하고자 할 때 abort()헬퍼함수 사용
+```php
+abort(404); // 즉시 예외를 발생시킴
+```
+```php
+abort(403, 'Unauthorized action.'); // 응답텍스트도 지정가능
+```
 ### 11.4.1. 커스텀-사용자 지정 HTTP 에러 페이지
+- HTTP응답코드에 대한 사용자 지정 에러페이지 표시
+- resources/views/errors디렉토리의 뷰 이름은 HTTP상태코드와 일치해야 함
+    (404 에러에 대한 에러페이지 수정시 resources/views/errors/404.blade.php를 생성)
+- abort()함수에 의해 발생한 HttpException인스턴스는 뷰에 $exception변수로 전달
+    ```php
+    <h2>{{ $exception->getMessage() }}</h2>
+    ```
+- vendor:publish artisan명령어로 오류페이지 템플릿을 퍼블리싱
+    ```bash
+    $ php artisan vendor:publish --tag=laravel-errors
+    ```
 
 
 
 # 12. Logging
+## 12.1. 라라벨의 로깅
+- 로그메세지를 파일에 기록, 시스템에러에 출력, 슬랙으로 전송 등
+- 로그핸들러를 제공하는 Monolog라이브러리 사용
+
+## 12.2. 설정하기
+- config/logging.php파일에서 로깅시스템 설저
+- 로그채널 설정
+    - 기본적으로 stack채널을 통해 로그 생성
+    - stack채널 : 여러개의 로그채널을 하나의 채널로 묶어서 사용
+    - 채널이름 설정
+        - 기본적으로 Monolog는 production 또는 local과 같은 채널이름으로 인스턴스가 생성됨
+            ```php
+            'stack' => [
+                'driver' => 'stack',
+                'name' => 'channel-name', // 채널이름 변경 가능
+                'channels' => ['single', 'slack'],
+            ],
+            ```
+### 12.2.1. 로그 스택 구성하기
+```php
+'channels' => [
+    'stack' => [ 
+        'driver' => 'stack',
+        'channels' => ['syslog', 'slack'], // syslog, slack채널을 묶음
+    ],
+
+    // 두개의 채널 모두에 로그를 기록
+    'syslog' => [
+        'driver' => 'syslog', // syslog는 전달된 메세지를 시스템 로그파일에 기록
+        'level' => 'debug',
+    ],
+
+    'slack' => [
+        'driver' => 'slack',
+        'url' => env('LOG_SLACK_WEBHOOK_URL'),
+        'username' => 'Laravel Log',
+        'emoji' => ':boom:',
+        'level' => 'critical', 
+    ],
+],
+```
+- 로그레벨
+    - 로그가 기록되어야 하는 최소레벨
+    - 라라벨의 Monolog는 RFC 5424 표준 스펙에 정의된 모든 (높은 레벨)emergency, alert, critical, error, warning, notice, info, debug(낮은 레벨) 레벨을 지원
+        ```php
+        Log::debug('An informational message.'); // 위의 로그스택 예시의 slack채널의 경우, 최소레벨이 critical이기 때문에(emergency, alert, critical만 기록) 이 메세지는 기록되지 않음.
+        ```
+## 12.3. 로그 메세지 작성하기
+- Log 파사드 사용하여 작성
+    ```php
+    Log::emergency($message);
+    Log::alert($message);
+    Log::critical($message);
+    Log::error($message);
+    Log::warning($message);
+    Log::notice($message);
+    Log::info($message);
+    Log::debug($message);
+    ```
+- 로그 메소드 호출
+    ```php
+    namespace App\Http\Controllers;
+
+    use App\Http\Controllers\Controller;
+    use App\User;
+    use Illuminate\Support\Facades\Log;
+
+    class UserController extends Controller
+    {
+        /**
+        * Show the profile for the given user.
+        *
+        * @param  int  $id
+        * @return Response
+        */
+        public function showProfile($id)
+        {
+            Log::info('Showing user profile for user: '.$id); // logging.php설정파일에 정의된 로그채널로 기록됨
+            // Log::info('User failed to login.', ['id' => $user->id]); // 상태정보를 배열로 전달 가능(로그메세지와 함께 출력됨)
+
+            return view('user.profile', ['user' => User::findOrFail($id)]);
+        }
+    }
+    ```
+- 상태정보
+### 12.3.1. 채널을 지정하여 로그 기록하기
+- 기본채널이 아닌 다른 채널을 지정하여 로그를 기록하는 경우
+    ```php
+    Log::channel('slack')->info('Something happened!'); //Log파사드의 channel()메소드 사용
+    Log::stack(['single', 'slack'])->info('Something happened!'); // 임시로 로그스택 구성시
+
+## 12.4. 확장된 Monolog 채널 커스터마이징하기
+### 12.4.1. 채널에서 사용하는 Monolog 커스터마이징하기
+- 채널핸들러에 대해 FormatterInterface 구현을 커스터마이징
+- 채널 설정 배열의 tap속성을 정의하면 됨
+    ```php
+    'single' => [
+        'driver' => 'single',
+        'tap' => [App\Logging\CustomizeFormatter::class], // Monolog 인스턴스를 커스터마이징하는 클래스들
+        'path' => storage_path('logs/laravel.log'),
+        'level' => 'debug',
+    ],
+    ```
+- tap 속성 정의 후 Monolog인스턴스를 커스터마이징하는 클래스를 정의
+    ```php
+    namespace App\Logging;
+
+    class CustomizeFormatter //Monolog인스턴스를 커스터마이징하는 클래스
+    {
+        public function __invoke($logger) // Illuminate\Log\Logger인스턴스(기본 Monolog인스턴스에 대한 메소드 호출을 프록시)를 전달받음
+        {
+            foreach ($logger->getHandlers() as $handler) {
+                $handler->setFormatter(...);
+            }
+        }
+    }
+    ```
+### 12.4.2. Monolog 핸들러 채널 생성하기
+```php
+'logentries' => [
+    'driver'  => 'monolog',
+    'handler' => Monolog\Handler\SyslogUdpHandler::class, // monolog 드라이버 사용시, 어떤 핸들러가 인스턴스화 되어야 하는지를 지정
+    'with' => [ // 사용할 핸들러의 생성자 파라미터를 지정
+        'host' => 'my.logentries.internal.datahubhost.company.com',
+        'port' => '10000',
+    ],
+],
+```
+- Monolog Formatters
+    ```php
+    'browser' => [
+        'driver' => 'monolog', // monolog드라이버사용시 LineFormatter가 기본포맷터지만 formatter,formatter_with옵션으로 커스터마이징 가능
+        'handler' => Monolog\Handler\BrowserConsoleHandler::class,
+        'formatter' => Monolog\Formatter\HtmlFormatter::class,
+        'formatter_with' => [
+            'dateFormat' => 'Y-m-d',
+        ],
+    ],
+    ```
+
+### 12.4.3. 팩토리를 사용하여 채널 생성하기
+- logging.php에서 커스텀채널(커스텀드라이버) 설정
+    ```php
+    'channels' => [ 
+        'custom' => [  // 커스텀채널 
+            'driver' => 'custom',
+            'via' => App\Logging\CreateCustomLogger::class, // 팩토리에서 Monolog인스턴스를 생성하기 위해 호출해야 할 클래스를 지정
+        ],
+    ],
+    ```
+- Monolog인스턴스 생성하는 클래스 정의
+    ```php
+    namespace App\Logging;
+
+    use Monolog\Logger;
+
+    class CreateCustomLogger
+    {
+        public function __invoke(array $config) // Monolog인스턴스 반환
+        {
+            return new Logger(...);
+        }
+    }
+    ```

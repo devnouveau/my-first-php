@@ -72,7 +72,7 @@ echo print_r($arr);
             "name": "Listen for XDebug",
             "type": "PHP",
             "request": "launch",
-            "port": 9000
+            "port": 9003
         },
         {
             "name": "Launch currently open script",
