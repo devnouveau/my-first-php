@@ -290,43 +290,438 @@ public function handle()
 
 # 2. 브로드캐스팅
 ## 2.1. 시작하기
-
+- 브로드캐스팅
+    - 1:N 통신모델. 한 네트워크의 모든 개체와 통신
+    - 소켓에 대해 브로드캐스팅 활성화 -> 브로드 캐스트 주소로 데이터 전송
+- 웹 소켓을 통해 서버 데이터 변경시(지속적인 폴링을 통해 데이터 변경확인) 메세지를 웹소켓 연결로 전송하여 클라이언트에 의해 처리되도록 함
+- 라라벨 이벤트는 채널(공개/비공개에 따라 구독시 인증,승인 필요)을 통해 브로드캐스트
 ### 2.1.1. 설정하기
+- ```config/broadcasting.php```에서 브로드캐스트 드라이버 설정(Pusher Channels, Redis, 디버깅 용도의 log 드라이버, null드라이버)
+
+- 브로드캐스트 서비스 프로바이더
+    - config/app.php - providers배열에서 App\Providers\BroadcastServiceProvider를 사용할 수 있도록 설정
+    - 브로드캐스트 인증 라우트와 콜백을 등록할 수 있게 해줌
+
+- CSRF 토큰
+    ```php
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    ```
+
+
 ### 2.1.2. 드라이버 사전준비사항
+- Pusher Channels사용시
+    1. Pusher PHP SDK 설치
+    2. config/broadcasting.php 설정 파일에서 Channels 인증정보설정
+    3. resources/js/bootstrap.js에서 라라벨 Echo인스턴스 초기화시 pusher를 브로드 캐스터로 지정
+    (라라벨 에코 : 채널 구독. 라라벨에 의해 브로드캐스트되는 이벤트를 수신하기 쉽게 해주는 자바스크립트 라이브러리)
+- Redis 브로드캐스터 사용시
+    -  PECL을 통해 phpredis PHP 확장모듈을 설치 or Composer를 통해 Predis 라이브러리 설치 필요
+    - 레디스와 웹소켓 서버를 페어링
+        - Socket.IO와 페어링시 
+            1. Socket.IO 자바스크립트 클라이언트 라이브리를 인클루드(npm 사용)
+            2. socket.io 커넥터와 host로 Echo를 초기화 
+            3. 호환되는 Socket.IO 서버를 실행
+- 큐를 사용하므로 큐설정이 되어 있어야 함
 
 ## 2.2. 컨셉 개요
 ### 2.2.1. 예제 애플리케이션
+1. 이벤트발생
+2. ShouldBroadcast 인터페이스
+    - broadcastOn() : 이벤트 전송될 채널을 반환
+3. 채널 인증(비공개채널인 경우)
+    - routes/channels.php 인증규칙 정의
+    - Broadcast::channel() 메소드에 인증된 사용자, 채널명 및 채널 구독을 위한 인증여부를 반환하는 콜백을 인자로 전달하며 호출
+4. 이벤트 브로드캐스트 수신
+    - 클라이언트 측 js에서 이벤트 수신
+    - Echo의 private() : 비공개 채널 수신
+    - Echo의 listen() : ShippingStatusUpdated 이벤트 수신
 
+    
 ## 2.3. 브로드캐스트 이벤트 정의
+- Illuminate\Contracts\Broadcasting\ShouldBroadcast 인터페이스 구현
 ### 2.3.1. 브로드캐스트 이름
+- 기본적으로 이벤트 클래스명으로 이벤트를 브로드캐스팅
+- 이벤트에 broadcastAs()로 브로드캐스트 이름 재정의 가능
+    - 리스너 등록 필요
 ### 2.3.2. 브로드캐스트 데이터
+- 이벤트의 public 속성은 자동으로 시리얼라이즈,브로드캐스트,클라이언트에서 접근 가능
+- broadcastWith() 에서 데이터 조작가능
 ### 2.3.3. 브로드캐스트 큐
-### 2.3.4. 브로드캐스트 조건
+- 기본적으로  queue.php에서 설정한 큐에 브로드캐스트 이벤트 저장됨
+- 이벤트클래스 - broadcastQueue속성정의하여 큐 재설정가능
+    - ShouldBroadcast대신 ShouldBroadcastNow인터페이스 구현 필요
+### 2.3.4. 조건부 브로드캐스트 
+이벤트 클래스 - broadcastWhen() 정의
 
-## 2.4. 승인채널
+
+
+## 2.4. 채널승인
+- 비공개 채널인 경우 사용자가 채널 구독 가능한지 검사
+    - 채널명을 포함하여 HTTP요청을 생성 -> 애플리케이션에서 검사
+    - Laravel Echo를 통해 자동으로 요청생성 가능
+    - 응답(승인)라우트는 직접 정의해야 함
 ### 2.4.1. 승인 라우트 정의
+- BroadcastServiceProvider에서 Broadcast::routes() 호출
+     -  /broadcasting/auth(승인요청을 처리하는 라우트)가 등록됨
+     - 자동으로 라우트를 WEB미들웨어 그룹에 위치시킴
+        - 속성 커스텀시 Broadcast::routes()에 속성배열 전달
 ### 2.4.2. 승인 콜백 정의
-### 2.4.3. 채널 클래스 정의
+- routes/channels.php 파일 - Broadcast::channel()에 승인 처리 콜백 전달
+- 모델 바인딩시 콜백의 파라미터로 타입힌트
+- Broadcast::channel()에 세번째 인자로 인증가드 지정하여 콜백에 인증가드가 적용되게 할 수 있음
 
-## 2.5. 브로드캐스팅 이벤트
+### 2.4.3. 채널 클래스 정의
+- 채널에 승인 콜백대신 채널클래스 사용가능
+    1. Artisan make:channel 명령어로 채널클래스 생성
+        -  App / Broadcasting에 채널 클래스 생성됨
+    2. routes/channels.php에 생성된 채널 등록
+    3. 채널클래스의 join()에 해당 채널 인증에 관련된 로직을 작성
+
+
+
+## 2.5. 이벤트 브로드캐스팅 
+- event() 함수로 이벤트 발생시킴
+    - 이벤트가 ShouldBroadcast인터페이스를 통해 표시되었음을 알리고 브로드 캐스트를 위해 이벤트를 큐에 저장 
 ### 2.5.1. 
+- event() 대신 broadcast() 사용가능
+- toOthers() 브로드 캐스트 수신자에서 현재 사용자를 제외시킴
+
+
 
 ## 2.6. 브로드캐스트 수신
 ### 2.6.1. 라라벨 에코 설치
+1. npm으로 에코 설치. Pusher Channels 브로드캐스터사용시 pusher-js도 설치.
+2. js에서 에코인스턴스 생성 (resources/js/bootstrap.js 파일 하단에 생성하는 것을 권장)
+
 ### 2.6.2. 이벤트 리스닝
+```javascript
+Echo.channel('orders') // channel() : 채널 인스턴스 받기
+    .listen('OrderShipped', (e) => { // listen() : 특정이벤트 수신 // private() : 비공개 채널 이벤트 수신
+        console.log(e.order.name);
+    });
+```
 ### 2.6.3. 채널 나가기
+```javascript
+Echo.leaveChannel('orders');
+Echo.leave('orders'); // 현재채널과 연관된 비공개채널도 나가려면 
+```
 ### 2.6.4. 네임스페이스
+- 에코는 자동으로 이벤트가 App\Events 네임스페이스에 위치하고 있다고 가정
+- namespace 임의지정가능
+    - 에코 초기화시 namespace속성으로 지정
+    - 이벤트 구독시 지정
+        ```javascript
+        Echo.channel('orders')
+        .listen('.Namespace\\Event\\Class', (e) => {
+            // 정규화된 클래스명시 
+        });
+        ```
+## 2.7. 프레젠스 채널
+- 비공개 채널을 누가 구독하고 있는지 알려주는 기능 추가해줌
 
-## 2.7. 주둔 채널
-### 2.7.1. 주둔 채널 승인하기
+### 2.7.1. 프레젠스 채널 승인하기
+- 프레젠스 채널은 비공개 채널이기 때문에 프레젠스에 접근하기 위해 사용자는 승인을 받아야 함(채널 승인관련 내용 ## 2.4. 채널승인 참조)
+
+### 2.7.2. 프레젠스 채널에 들어가기
+```javascript
+Echo.join(`chat.${roomId}`) // PresenceChannel(listen()을 노출)인스턴스를 반환
+    .here((users) => { // 현재 채널 구독중인 다른 모든 사용자들의 배열 수신
+    })
+    .joining((user) => { // 새 사용자가 채널 구독시 실행
+        console.log(user.name);
+    })
+    .leaving((user) => { // 사용자가 채널을 떠날 때 실행
+        console.log(user.name);
+    });
+```
+### 2.7.3. 프레젠스 채널에 브로드캐스트
+- 이벤트의 broadcastOn()에서 PresenceChannel인스턴스를 반환하여 이벤트를 프레젠스 채널에 브로드 캐스트
 
 
-
+## 2.8. 클라이언트 이벤트
+- 라라벨 애플리케이션이 아닌 다른 클라이언트에 이벤트를 브로드캐스트하는 경우 
+    ```javascript
+    Echo.private('chat')
+        .whisper('typing', { //클라이언트 이벤트를 브로드 캐스트
+            name: this.user.name
+        }); // 타이핑 중인 것을 다른 사용자에 알릴 때
+        .listenForWhisper('typing', (e) => { // 클라이언트이벤트 수신
+            console.log(e.name);
+        });
+    ```
+## 2.9. 알림
+```javascript
+Echo.private(`App.User.${userId}`)
+    .notification((notification) => { // notification()으로 브로드캐스트 이벤트 수신
+        console.log(notification.type);
+    });
+```
 
 
 
 # 3. 캐시
+## 3.1. 설정하기
+- 라라벨이 캐시 API를 제공
+- config/cache.php에서 캐시 드라이버 지정 
+- Memcached 나 Redis 같은 캐시시스템 지원 (기본은 file캐시 드라이버)
+
+
+### 3.1.1. 드라이버 사전 준비사항
+- DB스키마 구성
+    - Schema::create()
+    - php artisan cache:tableArtisan로도 스키마 마이그레이션 생성가능
+
+- Memcached 드라이버 사용시
+    - Memcached PECL 패키지 설치
+    - config/cache.php 설정 파일안에서 Memcache서버 지정
+- Redis 드라이버 사용시
+    - PECL을 통해서 PhpRedis PHP Extension 설치 or
+    컴포저로 predis/predis패키지 설치
+
+## 3.2. 캐시 사용법
+### 3.2.1. 캐시 인스턴스 획득하기
+- contracts로 접근
+    - Illuminate\Contracts\Cache\Factory : 정의된 모든 캐시 드라이버 제공
+    - Illuminate\Contracts\Cache\Repository : cache설정 파일에서 기본으로 설정된 캐시드라이버의 구현체
+- Cache 파사드로 접근
+    - Cache::get('key')
+    - store() : 여러개의 캐시 스토어에 접근 가능
+        ```php
+        Cache::store('redis')->get('stores 배열에 들어 있는 store 중 하나');
+        ```
+### 3.2.2. 캐시 아이템 조회
+```php
+$value = Cache::get('key');
+$value = Cache::get('key', 'default');
+$value = Cache::get('key', function () {
+    return DB::table(...)->get();
+});
+if (Cache::has('key')) {
+}
+Cache::increment('key');
+Cache::increment('key', $amount);
+Cache::decrement('key');
+Cache::decrement('key', $amount);
+
+// users아이템 없으면 DB에서 기본값 가져와서 저장
+$value = Cache::remember('users', $seconds, function () {
+    // rememberForever() : 영원히 기억
+    return DB::table('users')->get();
+});
+
+$value = Cache::pull('key');// 조회하고 삭제(아이템 없으면 null)
+```
+### 3.2.3. 캐시 아이템 저장하기
+```php
+// 아이템 저장
+Cache::put('key', 'value', $seconds); 
+Cache::put('key', 'value', now()->addMinutes(10));
+Cache::put('key', 'value'); // 아이템 무기한 저장
+
+// 아이템 존재하지 않으면 저장
+Cache::add('key', 'value', $seconds); 
+
+// 아이템 영구저장 (자동만료되지 않음)
+Cache::forever('key', 'value');
+```
+### 3.2.4. 캐시 아이템 삭제하기
+```php
+// 특정캐시 삭제
+Cache::forget('key');
+// TTL 지정하여 삭제
+Cache::put('key', 'value', 0);
+Cache::put('key', 'value', -5);
+// 전체캐시 삭제
+Cache::flush();
+```
+### 3.2.5. 원자 잠금장치 (Atomic-locks)
+- Atomic-locks : 경쟁조건에 대한 걱정없이 분산된 lock을 설정할 수 있게 함
+    - Laravel Forge : Atomic-locks를 사용해 한 번에 하나의 원격작업만 서버에서 실행되도록 함
+- 사용시 전제조건
+    - memcached, dynamodb 또는 redis 캐시 드라이버사용
+    - 모든 서버는 동일한 중앙캐시 서버와 통신
+- Cache::lock() 메소드 사용
+    ```php
+    Cache::lock('foo')->get(function () {
+        // Lock acquired indefinitely 
+        // and automatically released...
+    });
+    ```
+- 프로세스 간 잠금관리
+    - 요청 중에 잠금을 획득하고 해당 요청으로 인해 대기상태가 된 작업이 끝날 때 잠금을 해제하려 할 때
+        - 잠금범위가 지정된 소유자 토큰을 대기중인 작업에 전달
+        - 작업이 토큰을 이용해 잠금을 다시 인스턴스화
+            ```php
+            // Within Controller...
+            $podcast = Podcast::find($id);
+            $lock = Cache::lock('foo', 120); // 캐시 잠금
+            if ($result = $lock->get()) {
+                ProcessPodcast::dispatch($podcast, $lock->owner()); // 소유자 토큰을 job에 전달
+            }
+
+            // Within ProcessPodcast Job...
+            // 토큰을 확인해 잠금해제
+            Cache::restoreLock('foo', $this->owner)->release();
+            ```
+            ```php
+            // 현재 소유자를 무시하고 잠금해제시 
+            Cache::lock('foo')->forceRelease();
+            ```
+
+
+### 3.2.6. 캐시 헬퍼 함수
+```php
+cache(['key' => 'value'], $seconds);
+cache(['key' => 'value'], now()->addMinutes(10));
+cache()->remember('users', $seconds, function () {
+    return DB::table('users')->get();
+}); // cache() : Illuminate/Contracts/Cache/Factory구현 인스턴스 반환 (모든 캐싱 메소드 호출가능)
+```
+
+
+
+## 3.3. 캐시 태그
+- 캐시태그 : 다수의 캐시 아이템을 태그로 묶어 관리하게 해줌
+- file과 database드라이버에서는 지원불가
+### 3.3.1. 태그가 추가된 캐시 아이템 저장하기
+```php
+// tags(태그배열)->put(캐시key, 캐시value, 캐시유효시간)
+Cache::tags(['people', 'artists'])->put('John', $john, $seconds);
+Cache::tags(['people', 'authors'])->put('Anne', $anne, $seconds);
+```
+### 3.3.2. 태그로 캐시 아이템 엑세스하기
+```php
+$john = Cache::tags(['people', 'artists'])->get('John');
+$anne = Cache::tags(['people', 'authors'])->get('Anne');
+```
+### 3.3.3. 태그가 추가된 캐시 아이템 삭제하기
+```php
+// 'people' or 'artists' 로 태그된 John, Anne아이템 모두 삭제
+Cache::tags(['people', 'authors'])->flush();
+Cache::tags('authors')->flush(); // authors로 태그된 Anne만 삭제
+```
+## 3.4. 사용자 정의 캐시 드라이버 추가하기
+### 3.4.1. 드라이버 작성하기
+1. Illuminate\Contracts\Cache\Store contract 구현
+2. 각 메소드 구현
+
+### 3.4.2. 드라이버 등록하기
+1. 서비스프로바이더에서 Cache::extend()로 등록 
+    - App\Providers\AppServiceProvider의 boot()에서
+    - extension 을 제공하는 고유한 서비스 프로바이더의 boot()에서
+        ```php
+        public function boot()
+        {
+            // extend(드라이버명,Illuminate\Cache\Repository를 반환하는 클로저)
+            Cache::extend('mongo', function ($app) {  // $app은 서비스컨테이너인스턴스
+                return Cache::repository(new MongoStore);
+            });
+        }
+        ```
+2. config/cache.php에서 driver옵션을 추가한 드라이버명으로 변경
+
+
+## 3.5. 이벤트
+- 캐시 동작시 특정 코드가 실행되기를 원할 때 사용
+- 캐시 이벤트 리스너를 등록해야 함
+    ```php
+    // EventServiceProvider에 구성
+    protected $listen = [
+        'Illuminate\Cache\Events\CacheHit' => [ 
+            'App\Listeners\LogCacheHit',
+        ], // 이벤트 => 리스너
+
+        // ...
+    ];
+    ```
+
+
+
+
 # 4. 컬렉션
+## 4.1. 시작하기
+- Illuminate\Support\Collection 클래스
+    - 배열 데이터 사용을 위한 wrapper를 제공
+    - 편리한 매핑, 배열 조작을 위한 메소드 체이닝 가능
+    - 컬렉션 인스턴스는 immutable (컬렉션 메소드는 새로운 컬렉션 인스턴스 반환)
+### 4.1.1. 컬렉션 생성하기
+- collect() 헬퍼함수를 이용하여 생성
+    ```php
+    $collection = collect([1, 2, 3]); 
+    // Illuminate\Support\Collection 인스턴스 반환
+    ```
+### 4.1.2. 컬렉션 확장(상속)하기
+- 런타임에 Collection클래스에 메소드를 추가할 수 있음(macroable함)
+- 서비스 프로바이더에서 추가 
+    ```php
+    use Illuminate\Support\Str;
+    // Collection 클래스에 toUpper() 메소드 추가
+    Collection::macro('toUpper', function () {
+        return $this->map(function ($value) {
+            return Str::upper($value);
+        });
+    });
+
+    $collection = collect(['first', 'second']);
+
+    $upper = $collection->toUpper();
+
+    // ['FIRST', 'SECOND']
+    ```
+## 4.1. 사용 가능한 메소드
+//...
+## 4.2. Higher Order Messages
+- 컬렉션 인스턴스 내 각 요소에 공통된 작업 수행시 사용
+- 컬렉션 인스턴스의 동적속성에 접근가능
+- 사용가능한 컬렉션 메소드가 정해져 있음
+    ```php
+    $users = User::where('group', 'Development')->get();
+    return $users->sum->votes; // $users 컬렉션의 전체 투표수 확인
+    ```
+
+## 4.3. 지연 컬렉션-Lazy Collections
+### 4.3.1. 시작하기
+- 메모리 사용량을 적게 유지하면서도 매우 큰 데이터 셋을 처리할 수 있게 함
+- PHP의 generators를 이용함
+    ```php
+    use App\LogEntry;
+    use Illuminate\Support\LazyCollection;
+
+    // LazyCollection 생성하여 로그를 파싱
+    // LazyCollection::make()에 php제너레이터 함수를 전달
+    LazyCollection::make(function () {
+        $handle = fopen('log.txt', 'r');
+
+        while (($line = fgets($handle)) !== false) {
+            yield $line; // yield키워드를 포함시켜 제너레이터 함수로 사용
+        }
+    })->chunk(4)->map(function ($lines) { // chunk로 분할하여 후
+        return LogEntry::fromLines($lines); // 로그의 한 라인만 메모리에 로드하여 작업
+    })->each(function (LogEntry $logEntry) {
+        // Process the log entry...
+    });
+    ```
+    ```php
+    /*
+    $users = App\User::all()->filter(function ($user) {
+        return $user->id > 500;
+    });
+    */
+    // LazyCollection 인스턴스를 반환하는 쿼리빌더의 cursor() :
+    // DB에서 단 하나의 쿼리만 실행, 한 번에 하나의 Eloquent모델만 메모리에 로드.
+    // filter() 콜백 반복할 때까지 실행되지 않음
+    $users = App\User::cursor()->filter(function ($user) {
+        return $user->id > 500;
+    });
+    foreach ($users as $user) {
+        echo $user->id;
+    }
+    ```
+### 4.3.2. 열거형 Contract
+- Collection클래스에서 사용가능한 메소드들은 대부분
+LazyCollection클래스에서도 사용가능
+- Illuminate\Support\Enumerable contract에 구현
+
 
 # 5. 이벤트 (& 리스너)
 ## 5.1. 시작하기
@@ -425,7 +820,7 @@ public function handle()
     ```
 
 
-    
+
 ## 5.4. 리스너 정의
 - 리스너클래스의 handle메소드
     - 이벤트 인스턴스를 전달받음
@@ -536,10 +931,521 @@ class UserEventSubscriber
     ```
 
 # 6. 파일스토리지
+## 6.1. 시작하기
+- 라라벨의 파일 시스템
+    - Flysystem패키지 기반의 추상화된 파일 시스템 제공
+    - 각 시스템에 대한 동일한 API를 사용하여 스토리지를 쉽게 변경가능
+## 6.2. 설정하기
+- config/filesystems.php에서 설정
+- 각 디스크에 대한 스토리지 드라이버, 스토리지 위치 지정가능
+### 6.2.1. Public 디스크 
+- 누구나 접근가능한 디스크
+- local 드라이버 사용
+- storage/app/public에 파일 저장
+- 웹에서의 접근을 위해서는
+    - public/storage에 대해 storage/app/public 으로 심볼릭링크를 생성해야 함
+        ```bash
+        $ php artisan storage:link
+        ```
+    - asset() 헬퍼로 파일URL생성
+        ```php
+        asset('storage/file.txt');
+        ```
+
+### 6.2.2. 로컬 드라이버
+- config/filesystems.php에 설정된 root를 기준으로 파일이 조작됨
+- 기본 root directory는 storage/app
+    ```php
+    Storage::disk('local')->put('file.txt', 'Contents');
+    // storage/app/file.txt에 저장됨
+    ```
+- 권한
+    - config/filesystems.php에서 directory, file에 대한 권한 수정가능
+
+
+### 6.2.3. 드라이버 사용시 준비사항
+- 필요한 컴포저 패키지
+    - SFTP 사용시 : league/flysystem-sftp ~1.0
+    - Amazon S3 사용시 : league/flysystem-aws-s3-v3 ~1.0
+- 캐싱된 어댑터 사용시 : league/flysystem-cached-adapter ~1.0를 추가로 설치
+
+### 6.2.4. 캐싱
+- 디스크옵션 설정시 각 디스크에 cache지시어 추가
+    ```php
+    's3' => [
+        'driver' => 's3',
+
+        // Other Disk Options...
+
+        'cache' => [
+            'store' => 'memcached',
+            'expire' => 600,
+            'prefix' => 'cache-prefix',
+        ],
+    ],
+    ```
+
+## 6.3. Disk 인스턴스 획득하기
+- Storage파사드 사용
+    ```php
+    use Illuminate\Support\Facades\Storage;
+    
+    /*기본 설정된 디스크에 접근*/
+    Storage::put('avatars/1', $fileContents)
+
+    /* 특정 디스크에 접근 */
+    Storage::disk('s3')->put('avatars/1', $fileContents);
+    ```
+- 
+## 6.4. 파일 조회하기
+```php
+$contents = Storage::get('file.jpg'); // 파일내용반환
+$exists = Storage::disk('s3')->exists('file.jpg'); //존재확인
+$missing = Storage::disk('s3')->missing('file.jpg'); //누락확인
+```
+### 6.4.1. 파일 다운로드
+```php
+//  Storage::download() : 다운로드를 수행하는 response 생성
+return Storage::download('file.jpg');
+return Storage::download('file.jpg', $filename, $headers);
+```
+### 6.4.2. 파일 URL
+- 파일 url생성 메소드
+    ```php
+    // url()
+    use Illuminate\Support\Facades\Storage;
+    $url = Storage::url('file.jpg'); // 파일url 반환
+    // s3드라이버 사용시 - 전체 URL반환
+    // 로컬 드라이버 사용시 - 6.2.1. Public 디스크 내용 참조
+
+
+    // temporaryUrl()은 임시URL생성
+    $url = Storage::temporaryUrl(
+        'file.jpg',
+        now()->addMinutes(5),
+        ['ResponseContentType' => 'application/octet-stream']
+    );
+    ```
+- 로컬 URL호스트 커스텀
+    ```php
+    'public' => [
+        'driver' => 'local',
+        'root' => storage_path('app/public'), 
+        'url' => env('APP_URL').'/storage', // url옵션 변경
+        'visibility' => 'public',
+    ],
+    ```
+### 6.4.3. 파일의 메타 데이터
+- Storage::size('file.jpg');
+- Storage::lastModified('file.jpg'); // 마지막에 파일이 업데이트되었을 때의 UNIX 타임 스탬프값
+
+## 6.5. 파일 저장하기
+- 기본 저장 메소드
+    ```php
+    use Illuminate\Support\Facades\Storage;
+
+    /* 파일이 내용을 디스크에 저장 */
+    Storage::put('file.jpg', $contents);
+    /* 파일시스템의 스트림을 사용 */
+    Storage::put('file.jpg', $resource);
+    ```
+
+- 자동 스트리밍
+    - Illuminate\Http\File 혹은 Illuminate\Http\UploadedFile 인스턴스를 인자로 받아 자동으로 명시한 위체 파일을 스트림 처리함
+        ```php
+        use Illuminate\Http\File;
+        use Illuminate\Support\Facades\Storage;
+
+        // Automatically generate a unique ID for file name...
+        Storage::putFile('photos', new File('/path/to/photo')); 
+        // 저장경로 반환됨
+
+        // Manually specify a file name...
+        Storage::putFileAs('photos', new File('/path/to/photo'), 'photo.jpg');
+
+
+        // visibility지정가능
+        Storage::putFile('photos', new File('/path/to/photo'), 'public');
+        ```
+- 기타
+    ```php
+    // 내용추가
+    Storage::prepend('file.log', 'Prepended Text');
+    Storage::append('file.log', 'Appended Text');
+
+    // 복사/이동
+    Storage::copy('old/file.jpg', 'new/file.jpg');
+    Storage::move('old/file.jpg', 'new/file.jpg');
+    ```
+### 6.5.1. 파일 업로드
+- 
+    ```php
+    class UserAvatarController extends Controller
+    {
+        public function update(Request $request)
+        {
+            /* request의 store()메소드 호출시 */
+            // store()에는 경로를 인자로 주어야 함
+            $path = $request->file('avatar')->store('avatars');
+            // 파일이름 지정
+            $path = $request->file('avatar')->storeAs(
+                'avatars', $request->user()->id
+            );
+            // 디스크지정
+            $path = $request->file('avatar')->store(
+                'avatars/'.$request->user()->id, 's3'
+            );
+
+
+            /* Storage 파사드의 putFile 메소드를 호출시 */
+            $path = Storage::putFile('avatars', $request->file('avatar'));
+            // 파일이름지정
+            $path = Storage::putFileAs(
+                'avatars', $request->file('avatar'), $request->user()->id
+            );
+
+            return $path;
+        }
+    }
+    ```
+### 6.5.2. 파일 Visibility
+```php
+use Illuminate\Support\Facades\Storage;
+
+/* 파일 저장시 지정 */
+Storage::put('file.jpg', $contents, 'public');
+
+/* 파일이 이미 저장된 경우 */
+$visibility = Storage::getVisibility('file.jpg');
+Storage::setVisibility('file.jpg', 'public');
+```
+
+## 6.6. 파일 삭제하기
+```php
+use Illuminate\Support\Facades\Storage;
+
+Storage::delete('file.jpg');
+Storage::delete(['file.jpg', 'file2.jpg']);
+Storage::disk('s3')->delete('folder_path/file_name.jpg');
+```
+
+
+## 6.7. 디렉토리들
+```php
+use Illuminate\Support\Facades\Storage;
+
+// 디렉토리 안의 모든 파일들 확인
+$files = Storage::files($directory);
+$files = Storage::allFiles($directory); // 하위디렉토리 목록포함
+
+
+// 하위 디렉토리들 확인
+$directories = Storage::directories($directory);
+$directories = Storage::allDirectories($directory);// Recursive...
+
+// 디렉토리 생성하기
+Storage::makeDirectory($directory);
+
+// 디렉토리 삭제하기
+Storage::deleteDirectory($directory);
+```
+
+
+## 6.8. 사용자 정의 파일 시스템
+- 사용자 정의 파일 시스템 구성을 위해 필요한 것 (e.g. 드롭박스 어댑터)
+    1. FlySystem 패키지
+    2. FlySystem 어댑터
+        ```bash
+        $ composer require spatie/flysystem-dropbox
+        ```
+    3. ServiceProvider
+        ```php
+        namespace App\Providers;
+
+        use Illuminate\Support\ServiceProvider;
+        use League\Flysystem\Filesystem;
+        use Spatie\Dropbox\Client as DropboxClient;
+        use Spatie\FlysystemDropbox\DropboxAdapter;
+        use Storage;
+
+        class DropboxServiceProvider extends ServiceProvider
+        {
+            public function register()
+            {
+            }
+            public function boot()
+            {
+                // Storage::extend() 로 커스텀 드라이버 정의
+                Storage::extend('dropbox', function ($app, $config) {
+                    $client = new DropboxClient(
+                        $config['authorization_token']
+                    );
+
+                    return new Filesystem(new DropboxAdapter($client));
+                });
+            }
+        }
+        ```
+    4. 서비스프로바이더 등록 (config/app.php)
+        ```php
+        'providers' => [
+            // ...
+            App\Providers\DropboxServiceProvider::class,
+        ];
+        ```
+    5. config/filesystems.php 에서 등록한 dropbox드라이버 사용
+        
+
+
+
 # 7. 헬퍼 함수
+
+
+
 # 8. 메일
+- 라라벨은 SwiftMailer
+
+
 # 9. 알림
+## 9.1. 시작하기
+- 라라벨은 이메일, SMS(Nexmo를 통해 제공), 슬랙 등 다양한 드라이버 채널을 통해 알림을 발송하는 기능을 제공
+## 9.2. 알림 생성
+- 각 알림은 하나의 클래스로 표현
+- 알림 클래스 생성 (app/Notifications디렉토리에 생성됨)
+    ```bash
+    $ php artisan make:notification InvoicePaid
+    ```
+
+## 9.3. 알림 발송
+### 9.3.1. Notifiable trait 사용하기
+```php
+// Notifiable트레이트는 App\User모델에서 알림 발송시 사용됨
+namespace App;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use Notifiable; // Notifiable트레이트 사용
+}
+```
+```php
+// Notifiable 트레이트
+use App\Notifications\InvoicePaid;
+$user->notify(new InvoicePaid($invoice)); // notify() 메소드로 알림을 발송
+```
+
+### 9.3.2. Notification 파사드 사용하기
+```php
+// 사용자 컬렉션과 같은 여러개의 알림 가능한 엔티티들에 대해서 알림을 발송하는데 유용
+Notification::send($users, new InvoicePaid($invoice)); // Notification::send() 메소드로 알림 발송
+```
+
+### 9.3.3. 전달할 채널 지정하기
+- via() 메소드에서 지정
+    ```php
+    public function via($notifiable) // notifiable인스턴스를 전달받음
+    {
+        return $notifiable->prefers_sms ? ['nexmo'] : ['mail', 'database'];
+        //  mail, database, broadcast, nexmo, slack 채널을 통해 전달 가능
+    }
+    ```
+
+### 9.3.4. Queue를 통한 Notifications 사용
+- 알림전송은 시간 소요가 많음
+- 응답속도를 높이기 위해 queue를 통해 알림 구현가능
+    - queue설정 후 queue worker를 구동해야 함
+    - ShouldQueue 인터페이스, Queueable 트레이트를 알림클래스에 추가해 큐를 통해 알림이 발송되도록 함
+        ```php
+        namespace App\Notifications;
+
+        use Illuminate\Bus\Queueable;
+        use Illuminate\Contracts\Queue\ShouldQueue;
+        use Illuminate\Notifications\Notification;
+
+        class InvoicePaid extends Notification implements ShouldQueue // ShouldQueue인터페이스 구현
+        {
+            use Queueable; // Queueable 트레이트 사용
+            //...
+        }
+        ```
+        ```php
+        // queue를 사용한 알림발송 가능
+        $user->notify(new InvoicePaid($invoice)); 
+
+        // 지연된 알림발송
+        $when = now()->addMinutes(10);
+        $user->notify((new InvoicePaid($invoice))->delay($when));
+        ```
+### 9.3.5. 필요시 대상을 지정한 Notifications
+
+```php
+// route() 메소드 체이닝
+Notification::route('mail', 'taylor@example.com')
+            ->route('nexmo', '5555555555')
+            ->route('slack', 'https://hooks.slack.com/services/...')
+            ->notify(new InvoicePaid($invoice));
+```
+
+## 9.4. 이메일을 통한 알림
+### 9.4.1. 메세지 포맷 지정하기
+- 알림 클래스에서 toMail() 메소드 정의
+    ```php
+    public function toMail($notifiable)
+    {
+        $url = url('/invoice/'.$this->invoice->id);
+
+        /*  Illuminate\Notifications\Messages\MailMessage인스턴스 반환 */
+        return (new MailMessage) 
+                    ->greeting('Hello!')
+                    ->line('One of your invoices has been paid!')
+                    ->action('View Invoice', $url)
+                    ->line('Thank you for using our application!');
+
+
+        /* view()를 통해 알림이메일 렌더링되는 커스텀 템플릿사용 */
+        return (new MailMessage)->view(
+            'emails.name', ['invoice' => $this->invoice]
+        );           
+
+
+        /*  Mailable 인스턴스 반환 */
+        // return (new Mailable($this->invoice))->to($this->user->email);
+
+
+        /*  error()메소드 사용 */
+        return (new MailMessage)
+            ->error()
+            ->subject('Notification Subject')
+            ->line('...');
+    }
+    ```
+### 9.4.2. Sender 커스터마이징
+- 기본적으로 보내는 사람/주소는 config/mail.php 설정파일에 정의되어 있음
+```php
+public function toMail($notifiable)
+{
+    return (new MailMessage)
+                ->from('test@example.com', 'Example') // from()메소드로 지정가능
+                ->line('...');
+}
+```
+### 9.4.3. 수신메일주소 설정하기
+```php
+namespace App;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use Notifiable;
+    // routeNotificationForMail()메소드를 알림 엔티티 클래스에 정의하여 수신이메일 주소 설정
+    public function routeNotificationForMail($notification)
+    {
+        return $this->email_address;
+    }
+}
+```
+### 9.4.4. 제목 설정하기
+```php
+public function toMail($notifiable)
+{
+    return (new MailMessage)
+                ->subject('Notification Subject') // 제목설정
+                ->line('...');
+}
+```
+### 9.4.5. 템플릿 설정하기
+- 알림 템플릿 생성
+    ```bash
+    $ php artisan vendor:publish --tag=laravel-notifications
+    ```
+    - resources/views/vendor/notifications 디렉토리에 알림 템플릿 저장됨
+
+### 9.4.6. 메일 알림 미리보기
+```php
+Route::get('mail', function () {
+    $invoice = App\Invoice::find(1);
+
+    return (new App\Notifications\InvoicePaid($invoice))
+                ->toMail($invoice->user);
+            // MailMessage 반환시 브라우저에 렌더링되어 실제 이메일을 미리보기 할 수 있음
+});
+```
+
+
+
+## 9.5. 마크다운 이메일 알림
+- 사전 작성된 메일알림 템플릿 활용가능
+- 메세지 렌더링 원활, 반응형 HTML템플릿 사용, 일반텍스트 자동 생성 가능
+### 9.5.1. 메세지 클래스 생성하기
+- 아티즌 명령어를 통해 마크다운 템플릿으로 알림 클래스 생성
+    ```bash
+    $ php artisan make:notification InvoicePaid --markdown=mail.invoice.paid
+    ```
+### 9.5.2. 메세지 작성하기
+- 블레이드 컴포넌트, 마크다운 문법을 조합하여 작성
+```php
+@component('mail::message')
+# Invoice Paid
+
+Your invoice has been paid!
+
+@component('mail::button', ['url' => $url, 'color' => 'green'])
+View Invoice
+@endcomponent
+
+@component('mail::panel') // 주어진 텍스트 블럭 강조
+This is the panel content.
+@endcomponent
+
+@component('mail::table') // 테이블 컴포넌트는 HTML테이블로 변환됨
+| Laravel       | Table         | Example  |
+| ------------- |:-------------:| --------:|
+| Col 2 is      | Centered      | $10      |
+| Col 3 is      | Right-Aligned | $20      |
+@endcomponent
+
+
+Thanks,<br>
+{{ config('app.name') }}
+@endcomponent
+```
+
+
+### 9.5.3. 컴포넌트 커스터마이징 하기
+```bash
+$ php artisan vendor:publish --tag=laravel-mail
+# laravel-mail 에셋태그 지정
+```
+- resources/views/vendor/mail 디렉토리에 퍼블리싱
+
+
+## 9.6. DB알림
+
+### 9.6.1. 사전준비사항
+### 9.6.2. 데이터베이스 알림 포맷 지정하기
+### 9.6.3. 알림에 엑세스하기
+### 9.6.4. 알림을 읽음 표시로 전환하기
+
+## 9.7. 브로드캐스팅 알림
+### 9.7.1.
+### 9.7.2.
+### 9.7.3.
+### 9.7.4.
+
+
+## 9.8. SMS알림
+### 9.8.1.
+### 9.8.2.
+### 9.8.3.
+### 9.8.4.
+
+
 # 10. 패키지개발
+
 
 
 
@@ -587,7 +1493,7 @@ class UserEventSubscriber
         - redis클러스터 사용시 key hash tag을 반드시 포함해야 함(queue가 동일한 해시 슬롯에 부여됨을 보호하는 목적)
 - 다른 큐 드라이버의 사전준비사항
     - Amazon SQS: aws/aws-sdk-php ~3.0
-    - Beanstalkd: pda/pheanstalk ~4.0
+    - Beanstalk: pda/pheanstalk ~4.0
     - Redis: predis/predis ~1.0 또는 phpredis PHP 확장 모듈
 
 ## 11.2. job생성
@@ -958,4 +1864,97 @@ job 클래스에 failed()메소드 정의(job실패 Exception전달됨)
     - AppServiceProvider등 서비스프로바이더에서 호출
 
 
-# 12. 작업스케줄링
+# 12. 작업 스케줄링
+## 12.1. 시작하기
+- 기존 스케줄링
+    - 서버에서 각 작업에 대한 Cron항목 생성 (ssh접속하여 추가함. 번거로움)
+    - 작업 스케줄의 소스컨트롤 어려움
+- 라라벨 명령어 스케줄러 : 편리 ! 기능풍부 !
+- 라라벨 명령어 스케줄러를 호출하는 Cron항목을 서버에 추가해야 함 
+    ```bash
+    $ * * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+    ```
+    - schedule:run 실행시 라라벨이 스케줄에 포함된 작업을 계산/수행
+    - 라라벨 Forge를 사용하여 Cron항목 관리하는 것도 가능
+
+
+## 12.2. 스케줄 정의하기
+- app/Console/Kernel.php 파일의 schedule()메소드에서 작업스케줄 정의
+    ```php
+    protected function schedule(Schedule $schedule)
+    {
+        /* 클로저 사용하여 스케줄링 */
+        $schedule->call(function () {
+            DB::table('recent_users')->delete();
+        })->daily();
+
+        /* invokable objects 사용하여 스케줄링 */
+        $schedule->call(new DeleteRecentUsers)->daily();
+        // 호출되는 객체는 __invoke()를 포함하는 간단한 클래스
+    
+
+        /* 아티즌 명령어, os명령어 스케줄링 */
+        $schedule->command('emails:send Taylor --force')->daily();
+        $schedule->command(EmailsCommand::class, ['Taylor', '--force'])->daily();
+
+        /* Queued Jobs 스케줄링 */
+        $schedule->job(new Heartbeat)->everyFiveMinutes();
+        // Dispatch the job to the "heartbeats" queue...
+        $schedule->job(new Heartbeat, 'heartbeats')->everyFiveMinutes();
+
+        /* 쉘 명령어 스케줄링 */
+        $schedule->exec('node /home/forge/script.js')->daily();
+    }
+    ```
+### 12.2.1. 아티즌 명령어 스케줄링
+### 12.2.2. Queued Jobs 스케줄링
+### 12.2.3. 쉘 명령어 스케줄링
+12.2. 스케줄 정의하기 참조
+
+### 12.2.4. 스케줄링 주기 관련 옵션
+//...
+### 12.2.5. 타임존
+-  예약 된 작업의 시간을 주어진 타임존 안에서 실행 되도록 지정
+
+### 12.2.6. 작업의 중복 방지
+- 스케줄에 등록된 작업들 중 동일한 작업이 이미 실행중일 때 중복실행 방지 
+    ```php
+    $schedule->command('emails:send')->withoutOverlapping();
+    ```
+### 12.2.7. 한 서버에서만 작업 실행하도록 하기
+- 다수 서버사용시, 동일한 작업을 중복수행하지 않도록 수행서버 제외한 나머지 서버는 lock
+    ```php
+    // onOneServer();
+    $schedule->command('report:generate')
+                    ->fridays()
+                    ->at('17:00')
+                    ->onOneServer();
+    ```
+### 12.2.8. 백그라운드 작업
+- 동시 예약된 다수의 명령은 순차적으로 실행됨
+- 장시간 실행되는 명령 사용시 뒤에 실행되는 명령이 늦게 시작될 수 있음
+- runInBackground() : 백그라운드에서 명령을 실행해 모든 명령이 동시에 실행되게 할 수 있음
+
+### 12.2.9. 유지보수 모드
+- evenInMaintenanceMode() :유지보수 중인 서버에서도 스케줄링작업 실행되도록 강제
+
+## 12.3. 작업 출력
+- sendOutputTo() : 결과 파일 보냄
+- appendOutputTo() : 특정 파일에 출력을 더함
+- emailOutputTo() : 이메일주소로 출력전달
+- emailOutputOnFailure() : 명령 실패시 이메일주소로 출력전달
+
+## 12.4. 작업 후킹
+- before(), after() 메소드 사용시 작업 실행 전, 후에 특정 코드실행 가능
+- onSuccess(), onFailure()
+- URL Ping 실행
+    - guzzleHTTP 라이브러리 설치 후 이용
+        ```bash
+        $ composer require guzzlehttp/guzzle
+        ```
+    - pingBefore($url)
+    - thenPing($url)
+    - pingBeforeIf($condition, $url)
+    - thenPingIf($condition, $url)
+    - pingOnSuccess($successUrl)
+    - pingOnFailure($failureUrl);
