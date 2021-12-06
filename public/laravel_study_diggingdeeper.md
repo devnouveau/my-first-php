@@ -1203,7 +1203,167 @@ Storage::deleteDirectory($directory);
 
 
 # 8. 메일
-- 라라벨은 SwiftMailer
+## 8.1. 시작하기
+- 라라벨은 SwiftMailer를 통해 단순한 API 제공
+- SMTP, Mailgun, Postmark, 아마존 SES, sendmail 메일드라이버 제공
+### 8.1.1. 드라이버 사전 준비사항
+- guzzlehttp 라이브러리
+- config/mail.php에서 메일드라이버 설정
+
+## 8.2. Mailables 생성하기
+- mailable클래스로 라라벨에서 이메일발송처리 
+- make:mail명령어로 mailable클래스 생성
+    - app/Mail 디렉토리 내 mailable클래스가 위치하게 됨
+
+## 8.3. Mailable클래스 작성하기
+- build() 메소드 
+    - mailable클래스설정
+    - build() 메소드 내에서 from(), subject(), view(), attach() 같은 이메일 형태, 발송에 대해 설정하는 메소드 사용가능
+### 8.3.1. 발송자 설정하기
+```php
+public function build()
+{
+    return $this->from('example@example.com')
+                ->view('emails.orders.shipped');
+}
+```
+### 8.3.2. View-뷰 설정하기
+- 컨텐츠 렌더링시 사용할 템플릿을 지정
+    ```php
+    public function build()
+    {
+        return $this->view('emails.orders.shipped');
+       //  ->text('emails.orders.shipped_plain'); // 텍스트 전용 이메일인 경우
+    }
+    ```
+### 8.3.3. 뷰 데이터
+- 뷰에 데이터 전달하는 방법1. 
+    - mailable클래스 생성자에 데이터를 전달하여
+    , public속성에 저장 (자동으로 뷰에서 사용가능)
+- 뷰에 데이터 전달하는 방법2. 
+    - mailable클래스 생성자에 데이터를 전달하는 것은 동일. private혹은 protected속성에 데이터를 저장에야 함.
+    - build() 내에서 with() 메소드에 사용할 데이터를 전달(자동으로 뷰에서 사용가능)
+        ```php
+        public function build()
+        {
+            return $this->view('emails.orders.shipped')
+                        ->with([
+                            'orderName' => $this->order->name,
+                            'orderPrice' => $this->order->price,
+                        ]);
+        }
+        ```
+### 8.3.4. 첨부파일
+- attach(), attachFromStorage(), attachFromStorageDisk(), attachData()
+### 8.3.5. 인라인 첨부
+- 이메일 뷰 안에서 $message 메소드에 embed 메소드를 사용
+    ```php
+    <img src="{{ $message->embed($pathToImage) }}">
+    ```
+### 8.3.6. SwiftMailer 메세지 커스터미아징하기
+- withSwiftMessage()
+
+
+## 8.4. 마크다운 Mailables
+- 메일 템플릿, 메일 컴포넌트 활용을 가능하게 함
+- 원활한 렌더링, 반응형 HTML템플릿, 텍스트 자동생성 가능
+
+### 8.4.1. 마크다운 Mailable 생성하기
+- 마크다운 Mailable 클래스 생성
+    ```bash
+    $ php artisan make:mail OrderShipped --markdown=emails.orders.shipped
+    ```
+- markdown() 메소드 호출
+    ```php
+    public function build()
+    {
+        return $this->from('example@example.com')
+                    ->markdown('emails.orders.shipped');
+    }
+    ```
+### 8.4.2. 마크다운으로 메세지 작성하기
+9.5.2. 메세지 작성하기 참조
+
+### 8.4.3. 컴포넌트 커스터마이징
+9.5.3. 컴포넌트 커스터마이징 하기 참조
+
+## 8.5. 메일 발송
+```php
+class OrderController extends Controller
+{
+    public function ship(Request $request, $orderId)
+    {
+        $order = Order::findOrFail($orderId);
+        //...
+        // Mail::to(메일주소, 사용자인스턴스하나, 사용자들 컬렉션) 메소드 사용
+        // ( 자동으로 사용자 객체의 email, name 속성을 가져와서 이메일 수신자로 설정)
+        // send(mailable인스턴스)메소드에 수신자 데이터전달하여 발송
+        Mail::to($request->user())->send(new OrderShipped($order)); // mailable 클래스의 인스턴스를 send 메소드에 전달
+    }
+}
+```
+### 8.5.1. 큐를 통한 메일 처리
+- Mail::queue(mailable인스턴스) 메소드 호출
+    ```php
+    $when = now()->addMinutes(10);
+
+    Mail::to($request->user())
+    ->cc($moreUsers)
+    ->bcc($evenMoreUsers)
+    ->queue(new OrderShipped($order));
+    //->later($when, new OrderShipped($order)); // 지연발송시
+
+    /* 지정된 큐로 작업 보내기 */
+    $message = (new OrderShipped($order))
+                    ->onConnection('sqs')
+                    ->onQueue('emails');
+
+    Mail::to($request->user())
+        ->cc($moreUsers)
+        ->bcc($evenMoreUsers)
+        ->queue($message);
+    ```
+- mailable 클래스가 ShouldQueue를 구현하도록 하기(항상 큐를 통해 처리됨)
+    ```php
+    use Illuminate\Contracts\Queue\ShouldQueue;
+
+    class OrderShipped extends Mailable implements ShouldQueue
+    {
+    }
+    ```
+
+## 8.6. Mailables 객체 렌더링
+```php
+$invoice = App\Invoice::find(1);
+return (new App\Mail\InvoicePaid($invoice))->render(); // mailable 객체의 render() 메소드 호출하여 렌더링(객체 내용을 연산하여 문자형태로 반환)
+```
+### 8.6.1. 브라우저에서 Mailable 객체 미리보기
+```php
+Route::get('mailable', function () {
+    $invoice = App\Invoice::find(1);
+    return new App\Mail\InvoicePaid($invoice); // 라우트에서 mailabl 객체반환하면 브라우저에 렌더링되어 메일을 미리 볼 수 있음
+});
+```
+## 8.7. Mailables 현지화
+- locale(언어코드)메소드 사용
+- 사용자 선호 언어
+    - 사용자 모델 클래스가 HasLocalePreference contract를 구현하게 함
+
+## 8.8. 메일 & 로컬 개발환경
+- 개발환경에서 이메일 발송 비활성화 방법
+    - 로그 드라이버 사용
+    - 모든 메일의 수신자 고정 (config/mail.php의 to옵션)
+    - Mailtrap서비스 사용
+## 8.9. 이벤트
+- 라라벨에서 이메일이 큐를 통하지 않고 바로 발송시 이벤트 발생
+    - MessageSending 이벤트 (메시지 발송 전 발생)
+    - MessageSent 이벤트 (메시지 발송 후 발생)
+    - EventServiceProvider에서 이벤트 리스터 등록가능 ($listen 속성에 등록)
+
+
+
+
+
 
 
 # 9. 알림
@@ -1387,66 +1547,584 @@ Route::get('mail', function () {
     ```
 ### 9.5.2. 메세지 작성하기
 - 블레이드 컴포넌트, 마크다운 문법을 조합하여 작성
-```php
-@component('mail::message')
-# Invoice Paid
+    ```php
+    @component('mail::message')
+    # Invoice Paid
 
-Your invoice has been paid!
+    Your invoice has been paid!
 
-@component('mail::button', ['url' => $url, 'color' => 'green'])
-View Invoice
-@endcomponent
+    @component('mail::button', ['url' => $url, 'color' => 'green'])
+    View Invoice
+    @endcomponent
 
-@component('mail::panel') // 주어진 텍스트 블럭 강조
-This is the panel content.
-@endcomponent
+    @component('mail::panel') // 주어진 텍스트 블럭 강조
+    This is the panel content.
+    @endcomponent
 
-@component('mail::table') // 테이블 컴포넌트는 HTML테이블로 변환됨
-| Laravel       | Table         | Example  |
-| ------------- |:-------------:| --------:|
-| Col 2 is      | Centered      | $10      |
-| Col 3 is      | Right-Aligned | $20      |
-@endcomponent
+    @component('mail::table') // 테이블 컴포넌트는 HTML테이블로 변환됨
+    | Laravel       | Table         | Example  |
+    | ------------- |:-------------:| --------:|
+    | Col 2 is      | Centered      | $10      |
+    | Col 3 is      | Right-Aligned | $20      |
+    @endcomponent
 
 
-Thanks,<br>
-{{ config('app.name') }}
-@endcomponent
-```
+    Thanks,<br>
+    {{ config('app.name') }}
+    @endcomponent
+    ```
 
 
 ### 9.5.3. 컴포넌트 커스터마이징 하기
-```bash
-$ php artisan vendor:publish --tag=laravel-mail
-# laravel-mail 에셋태그 지정
-```
-- resources/views/vendor/mail 디렉토리에 퍼블리싱
+- 마크다운 메일 컴포넌트를 resources/views/vendor/mail 디렉토리에 퍼블리싱
+    ```bash
+    $ php artisan vendor:publish --tag=laravel-mail
+    # laravel-mail 에셋태그 지정
+    ```
+    - 생성된 html, text 디렉토리 내 컴포넌트를 커스텀 가능
+- CSS 커스터마이징
+    - 컴포넌트 export 후 resources/views/vendor/mail/html/themes 디렉토리에서 default.css파일 확인 가능
+        - 마크다운알림의 html에서 css자동 적용
+    - html/themes디렉토리에 css파일 추가 가능
+        - mail 컴포넌트의 theme옵션을 새 테마의 이름과 동일하도록 수정
+    - 개별 알림에 대한 테마 커스텀
+        - toMail()메소드 내에서 theme()메소드 사용
+            ```php
+            public function toMail($notifiable)
+            {
+                return (new MailMessage)
+                            ->theme('invoice')
+                            ->subject('Invoice Paid')
+                            ->markdown('mail.invoice.paid', ['url' => $url]);
+            }
+            ```
 
 
 ## 9.6. DB알림
+- database 알림채널은 알림정보를 DB에 저장
 
 ### 9.6.1. 사전준비사항
+- DB 준비
+    - 알림을 저장할 db테이블 생성
+    - 마이그레이션 생성
+        ```php
+        $ php artisan notifications:table
+        ```
+    - 마이그레이션 실행
+        ```php
+        $ php artisan migrate
+        ```
+
 ### 9.6.2. 데이터베이스 알림 포맷 지정하기
+- 알림클래스에서 toDatabase() 혹은 toArray()메소드 정의 필요
+(toArray()를 브로드캐스팅시 사용하는 경우, 여기서는 toDatabase()를 정의해서 사용해야 함)
+    ```php
+    public function toArray($notifiable) // $notifiable받음
+    {
+        return [
+            'invoice_id' => $this->invoice->id,
+            'amount' => $this->invoice->amount,
+        ]; // 순수 php배열을 반환해야 함
+        // 반환된 배열은 JSON인코딩 되어 notification테이블의 data컬럼에 저장됨
+    }
+    ```
 ### 9.6.3. 알림에 엑세스하기
+-  App\User모델에서 사용하는 Illuminate\Notifications\Notifiable트레이트는 notifications Eloquent 관계를 가짐(notifications 객체 리턴해줌)
+    ```php
+    $user = App\User::find(1);
+
+    // notifications Eloquent에 접근 
+    // 기본적으로 알림은 created_at 타임스탬프를 기준으로 정렬
+    foreach ($user->notifications as $notification) { // 읽지 않은 알림만 조회시 unreadNotifications 사용
+        echo $notification->type;
+    }
+    ```
 ### 9.6.4. 알림을 읽음 표시로 전환하기
+- Illuminate\Notifications\Notifiable트레이트의 markAsRead()
+    - 알림 테이블의 read_at컬럼을 업데이트함
+        ```php
+        $user = App\User::find(1);
+        foreach ($user->unreadNotifications as $notification) {
+            $notification->markAsRead();
+        }
 
-## 9.7. 브로드캐스팅 알림
-### 9.7.1.
-### 9.7.2.
-### 9.7.3.
-### 9.7.4.
+        /* 위의 반복문 대신 아래와 같이 컬렉션에 바로 사용가능 */
+        // $user->unreadNotifications->markAsRead();
+
+        /* mass-update 쿼리 사용시 */
+        $user = App\User::find(1);
+        $user->unreadNotifications()->update(['read_at' => now()]);
+        ```
+- 테이블에서 알림 삭제
+    ```php
+    $user->notifications()->delete();
+    ```
 
 
+
+
+## 9.7. 알림 브로드캐스팅 
+### 9.7.1. 사전 준비사항
+- 라라벨 이벤트 브로드캐스팅 설정 (2. 브로드캐스팅 참고)
+
+### 9.7.2. 브로드캐스팅 알림 포맷 지정하기
+- 알림을 브로드캐스팅하기 위해 알림 클래스 내 toBroadcast() 정의
+    ```php
+    use Illuminate\Notifications\Messages\BroadcastMessage;
+
+    public function toBroadcast($notifiable) // notifiable 엔티티 받음
+    {
+        return new BroadcastMessage([
+            'invoice_id' => $this->invoice->id,
+            'amount' => $this->invoice->amount,
+        ]); // BroadcastMessage인스턴스 반환되고, 이는 JSON으로 인코딩되어 클라이언트로 브로드 캐스팅 됨
+    }
+    ```
+    - toBroadcast() 메소드 없을 경우 toArray() 메소드가 브로드 캐스팅용 데이터 조회시 사용됨
+
+- 브로드 캐스트 큐 설정
+    ```php
+    return (new BroadcastMessage($data))
+                ->onConnection('sqs')
+                ->onQueue('broadcasts');
+    ```
+
+### 9.7.3. 알림을 위한 리스너 (알림 수신)
+- 알림 수신 채널
+    - 비공개 채널에 브로드캐스팅되는 알림은 {notifiable}.{id} 컨벤션으로 포맷지정
+    -  ID 가 1인 App\User 인스턴스의 알림은 App.User.1 비공개 채널에 브로드캐스팅
+- 라라벨 에코 사용시 채널에서 notification() 헬퍼메소드로 알림 수신 가능
+    ```php
+    Echo.private('App.User.' + userId) // (알림수신채널)
+        .notification((notification) => {
+            console.log(notification.type);
+        });
+    ```
+- 알림수신채널 커스텀
+    -  notifiable entity (e.g. App\User)에서 receivesBroadcastNotificationsOn() 메소드를 정의
+        ```php
+        public function receivesBroadcastNotificationsOn()
+        {
+            return 'users.'.$this->id;
+        }
+        ```
+
+
+
+
+        
 ## 9.8. SMS알림
-### 9.8.1.
-### 9.8.2.
-### 9.8.3.
-### 9.8.4.
+- 라라벨에서는 Nexmo사용하여 SMS알림 전송
+
+### 9.8.1. 사전준비사항
+1. laravel/nexmo-notification-channel 컴포저 패키지 설치
+    - nexmo/laravel 패키지도 설치됨
+        - 자체설정파일포함
+        - NEXMO_KEY 및 NEXMO_SECRET 환경 변수를 사용해 Nexmo 공개 및 비밀 키 설정
+2. config/services.php 설정파일에 설정옵션 추가
+    ```php
+    'nexmo' => [
+        'sms_from' => '15556666666', //  SMS 메세지가 전송되는 전화번호
+        // Nexmo 설정 패널에서 애플리케이션의 전화번호를 생성해야 함
+    ],
+    ```
+
+### 9.8.2. SMS 알림 포맷 지정하기
+- 알림 클래스에서 toNexmo() 메소드 정의해야 함
+    ```php
+    public function toNexmo($notifiable) // notifiable엔티티 받음
+    {
+        // Illuminate\Notifications\Messages\NexmoMessage인스턴스 반환
+        return (new NexmoMessage)
+                    ->content('Your SMS message content');
+
+
+
+        /** sms에 유니코드 문자 포함시 **/
+        /*
+        return (new NexmoMessage)
+            ->content('Your unicode message')
+            ->unicode(); // unicode() 메소드 호출 필요
+        */
+    }
+    ```
+
+### 9.8.3. Shortcode 알림 포맷 지정하기
+- shortcode :  Nexmo 계정에서 미리 정의된 메시지 템플릿
+- shortcode 지정
+    ```php
+    public function toShortcode($notifiable)
+    {
+        return [ 
+            'type' => 'alert', // 알림 유형
+            'custom' => [ // 사용자 정의 값
+                'code' => 'ABC123',
+            ];
+        ];
+    }
+    ```
+
+
+### 9.8.4. 발신자 번호 지정하기
+- config/services.php에 지정된 발신자 번호와 다른 번호 사용시
+- NexmoMessage인스턴스의 from() 메소드 사용
+
+### 9.8.5. SMS 알림 라우팅 (수신자 번호 지정)
+- 알림 사용할 엔티티에 routeNotificationForNexmo() 메소드 정의
+     ```php
+     namespace App;
+
+    use Illuminate\Foundation\Auth\User as Authenticatable;
+    use Illuminate\Notifications\Notifiable;
+
+    class User extends Authenticatable
+    {
+        use Notifiable;
+
+        // Nexmo채널로 알림을 라우팅
+        public function routeNotificationForNexmo($notification)
+        {
+            return $this->phone_number; // 수신번호 지정 //엔티티 (현재 user모델)의 정보 사용
+        }
+    }
+     ```
+
+
+
+
+## 9.9. slack 알림
+### 9.9.1. 사전준비사항
+- 슬랙 알림 채널 패키지 설치
+    ```bash
+    $ composer require laravel/slack-notification-channel
+    ```
+- 슬랙 팀에서 "Incoming Webhook" intergration설정 (슬랙 알림 전송시 사용할 URL을 제공해줌)
+
+### 9.9.2. Slack 알림 포맷 지정하기
+- 알림클래스에 toSlack() 메소드 정의
+    ```php
+    public function toSlack($notifiable) // notifiable 엔티티 받음
+    {
+        // Illuminate\Notifications\Messages\SlackMessage 인스턴스 반환
+        return (new SlackMessage)
+                ->from('Ghost', ':ghost:') // 발신자지정 (사용자이름, 이모지 식별자)
+                ->to('#other') // 수신자지정 (채널 or 사용자이름)
+                ->content('This will be sent to #other');
+    }
+    ```
+
+### 9.9.3. 슬랙 첨부파일
+```php
+public function toSlack($notifiable)
+{
+    $url = url('/exceptions/'.$this->exception->id);
+
+    return (new SlackMessage)
+                ->error()
+                ->content('Whoops! Something went wrong.')
+                ->attachment(function ($attachment) use ($url) {
+                    $attachment->title('Exception: File Not Found', $url)
+                               ->content('File [background.jpg] was not found.');
+
+                                /* // 테이블 스타일로 출력하기
+
+                                ->fields([
+                                                    'Title' => 'Server Expenses',
+                                                    'Amount' => '$1,234',
+                                                    'Via' => 'American Express',
+                                                    'Was Overdue' => ':-1:',
+                                                ]);
+                                */
+
+                                /* // 첨부파일 필드 중 마크다운이 포함되어 있는 경우
+                                주어진 마크다운 텍스트를 파싱하여 출력되도록 함
+
+                                ->markdown(['text']); 
+                                */
+                });
+}
+```
+### 9.9.4. 슬랙 알림 라우팅 (수신자 설정)
+- 알림엔티티에 routeNotificationForSlack() 메소드 정의
+    ```php
+    public function routeNotificationForSlack($notification)
+    {
+        return 'https://hooks.slack.com/services/...'; // 알림이 전송될 webhook URL(슬랙 팀 설정의 "Incoming Webhook" 서비스에서 생성) 반환
+    }
+    ```
+
+## 9.10. 알림 현지화
+- Illuminate\Notifications\Mailable클래스의 locale()메소드 사용
+- 알림 양식 생성시 언어 변경, 생성완료 후 이전 언어로 돌아감
+    ```php
+    $user->notify((new InvoicePaid($invoice))->locale('es'));
+    ```
+- Notification 파사드 이용
+    ```php
+    Notification::locale('es')->send($users, new InvoicePaid($invoice));
+    ```
+- 사용자 선호 언어 설정
+ - HasLocalePreference contract구현
+    ```php
+    use Illuminate\Contracts\Translation\HasLocalePreference;
+
+    class User extends Model implements HasLocalePreference
+    {
+        /**
+        * Get the user's preferred locale.
+        *
+        * @return string
+        */
+        public function preferredLocale()
+        {
+            return $this->locale;
+        }
+    }
+    ```
+    ```php
+    $user->notify(new InvoicePaid($invoice)); // preferredLocale() 에서 지정한 로케일로 notify됨
+    ```
+
+## 9.11. 알림 이벤트
+- 알림 전송시, Illuminate\Notifications\Events\NotificationSent 이벤트 발생
+- 이벤트는 notifiable 엔티티와 알림인스턴스를 가지고 있음
+- EventServiceProvider에서 이벤트리스너 등록
+- event:generate아티즌 명령어로 리스너 클래스 생성가능
+    - 리스너 클래스 내에서는 이벤트의 notifiable, notification, channel 속성에 접근 가능
+
+
+
+## 9.12. 커스텀 알림 채널
+- send() 메소드를 가진 클래스 정의
+    - send()는 $notifiable 와 $notification를 전달 받아야 함
+        ```php
+        namespace App\Channels;
+
+        use Illuminate\Notifications\Notification;
+
+        class VoiceChannel
+        {
+
+            public function send($notifiable, Notification $notification) 
+            {
+                $message = $notification->toVoice($notifiable);
+
+                // Send notification to the $notifiable instance...
+            }
+        }
+        ```
+2. 알림클래스의 via 메소드에서 클래스 이름을 반환
+    ```php
+    public function via($notifiable)
+    {
+        return [VoiceChannel::class];
+    }
+    ```
+
 
 
 # 10. 패키지개발
+## 10.1. 시작하기
+- 패키지개발 : 라라벨에 기능을 추가하는 주요 방법
+
+### 10.1.1. 파사드 사용의 주의사항
+- contracts, facades 둘 다 테스트성은 동일
+- 패키지는 일반적으로 testing helper에 접근 불가
+- Orchestral Testbench패키지를 사용하여 일반적인 패키지 테스트 작성 가능
+
+## 10.2. 패키지 Discovery를 위한 설정
+- composer.json파일
+    ```php
+    "extra": {
+        "laravel": {
+            "providers": [ // 패키지 Discovery
+                "Barryvdh\\Debugbar\\ServiceProvider"
+            ],
+            "aliases": {
+                "Debugbar": "Barryvdh\\Debugbar\\Facade"
+            },
+
+            "dont-discover": [ // 패키지 Discovery에서 제외
+                "barryvdh/laravel-debugbar"
+            ]
+        }
+    },
+    ```
+    - extra섹션에 서비스프로바이더 정의
+        - 패키지 인스톨시 config/app.php의 해당 서비스프로바이더가 providers옵션에 자동으로 추가됨
+    - 등록할 facades도 정의 가능
+        - 자동으로 파사드 등록됨
 
 
+
+## 10.3. 서비스 프로바이더
+- 서비스 프로바이더 : 라라벨과 패키지 사이의 접점
+- 하나의 서비스 프로바이더는 서비스 컨테이너 바인딩에 대응
+- 패키지의 뷰, 설정파일, 언어파일의 위치를 라라벨에 알려주는 역할
+- Illuminate\Support\ServiceProvider를 상속받음 (register(), boot()메소드를 포함
+- 베이스 ServiceProvider클래스 : 컴포저 패키지의 illuminate/support에 위치
+    - 패키지에 필요한 의존성을 컴포저에 추가해야 함
+
+
+
+## 10.4. Resources
+### 10.4.1. 설정파일 퍼블리싱
+1. 패키지 설정파일을 config디렉토리에 퍼블리싱
+    ```php
+    // 서비스프로바이더 클래스
+    public function boot()
+    {
+        $this->publishes([ // publishes()로 패키지 설정파일 퍼블리싱
+            __DIR__.'/path/to/config/courier.php' => config_path('courier.php'),
+        ]);
+    }
+    ```
+2. vendor:publish 명령어 실행시 파일들이 지정된 위치로 복사됨
+    ```php
+    $value = config('courier.option'); // 설정값 액세스 가능
+    ```
+- 패키지 기본설정
+    - 패키지 설정 파일을 애플리케이션의 퍼블리싱된 설정 파일에 병합시
+    - register()메소드 내 mergeConfigFrom()메소드 사용
+        ```php
+        public function register()
+        {
+            $this->mergeConfigFrom(
+                __DIR__.'/path/to/config/courier.php', 'courier'
+            );
+        }
+        ```
+
+### 10.4.2. 마이그레이션 파일들
+- loadMigrationsFrom() 메소드로 패키지의 마이그레이션 파일들을 라라벨이 로딩할 수 있도록 위치를 알려줌
+    ```php
+    public function boot()
+    {
+        $this->loadMigrationsFrom(__DIR__.'/path/to/migrations'); /
+    }
+    ```
+### 10.4.3. 라우트
+- loadRoutesFrom() 메소드로 패키지의 라우트를 로딩
+    ```php
+    public function boot()
+    {
+        $this->loadRoutesFrom(__DIR__.'/routes.php');
+        // 라우트 캐싱여부를 자동으로 확인하여 로딩
+    }
+    ```
+### 10.4.4. 언어 파일
+- loadTranslationsFrom(언어파일 위치, 패키지이름)메소드로 패키지의 언어파일을 라라벨이 로드할 수 있게 해줌
+    ```php
+    public function boot()
+    {
+        $this->loadTranslationsFrom(__DIR__.'/path/to/translations', 'courier');
+    }
+    ```
+    - 패키지 언어파일 참조시
+        ```php
+        echo trans('courier::messages.welcome'); // package::file.line
+        ```
+- 언어파일 퍼블리싱하는 경우
+    - resources/lang/vendor디렉토리로 퍼블리싱하는 경우 publishes() 메소드 사용
+        ```php
+        public function boot()
+        {
+            $this->loadTranslationsFrom(__DIR__.'/path/to/translations', 'courier');
+
+            $this->publishes([
+                __DIR__.'/path/to/translations' => resource_path('lang/vendor/courier'),
+            ]);
+        }
+        ```
+        - vendor:publish 명령어 실행시 패키지의 언어파일들이  퍼블리싱위치에 복사됨
+
+
+### 10.4.5. 뷰 파일들
+- loadViewsFrom() 메소드로 라라벨이 패키지의 뷰를 등록할 수 있게 뷰파일 위치를 라라벨에 알려줌
+    ```php
+    // 서비스프로바이더에서 뷰 경로 등록
+    public function boot()
+    {
+        $this->loadViewsFrom(__DIR__.'/path/to/views', 'courier'); // (뷰템플릿경로, 패키지이름)
+    }
+    ```
+    - 패키지의 뷰 참조방법
+        ```php
+        Route::get('admin', function () {
+            return view('courier::admin'); 
+            // courier 패키지의 admin뷰 로드 (package::view문법)
+        });
+        ```
+    - loadViewsFrom()사용시 뷰파일 로드를 위한 두개의 경로 등록
+        1. resources/views/vendor/패키지이름 
+        2. 사용자 지정 디렉토리
+        - 먼저 1에 뷰가 있는지 확인하고, 없으면 loadViewsFrom()에서 지정된 뷰 디렉토리를 확인함
+- 뷰 퍼블리싱하는 경우 
+    - publishes() 메소드로 뷰파일을 resources/views/vendor에 복사
+        ```php
+        public function boot()
+        {
+            $this->loadViewsFrom(__DIR__.'/path/to/views', 'courier');
+
+            $this->publishes([
+                __DIR__.'/path/to/views' => resource_path('views/vendor/courier'),
+            ]); // publishes(패키지의 뷰 경로, 퍼블리싱될 위치를 나타내는 배열)
+        }
+        ```
+        - vendor:publish명령어 실행시 패키지 뷰 파일이 지정된 퍼블리싱 위치로 복사됨
+    
+
+
+
+## 10.5. 명령어
+- boot() 메소드 내 commands()메소드를 사용하여 패키지의 아티즌 명령어를 등록
+    ```php
+    public function boot()
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                FooCommand::class,
+                BarCommand::class,
+            ]);
+        }
+    }
+    ```
+
+## 10.6. Public Assets
+- js, css, 이미지 파일 등의 assets파일들을 public디렉토리로 퍼블리싱
+    - 서비스 프로바이더의 publishes()메소드 사용
+        ```php
+        public function boot()
+        {
+            $this->publishes([
+                __DIR__.'/path/to/assets' => public_path('vendor/courier'),
+            ], 'public');
+        }
+        ```
+    - vendor:publish 명령어 실행시 assest들이 퍼블리싱 위치로 복사됨
+        ```bash
+        $ php artisan vendor:publish --tag=public --force 
+        # 패키지 업데이트시 assets를 덮어쓰도록 --force플래그 사용
+        ```
+
+## 10.7. Publishing File Groups
+- 서비스 프로바이더의 publishes()메소드에서 그룹별 태그 지정
+    ```php
+    public function boot()
+    {
+        $this->publishes([
+            __DIR__.'/../config/package.php' => config_path('package.php')
+        ], 'config'); // config 태그 지정
+
+        $this->publishes([
+            __DIR__.'/../database/migrations/' => database_path('migrations')
+        ], 'migrations'); // migrations 태그 지정
+    }
+    ```
+- vendor:publish 실행시 태그를 참조하여 그룹별로 퍼블리싱 가능
+    ```php
+    $ php artisan vendor:publish --tag=config
+    ```
 
 
 
