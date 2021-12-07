@@ -318,7 +318,7 @@ public function handle()
     -  PECL을 통해 phpredis PHP 확장모듈을 설치 or Composer를 통해 Predis 라이브러리 설치 필요
     - 레디스와 웹소켓 서버를 페어링
         - Socket.IO와 페어링시 
-            1. Socket.IO 자바스크립트 클라이언트 라이브리를 인클루드(npm 사용)
+            1. Socket.IO 자바스크립트 클라이언트 라이브러리를 인클루드(npm 사용)
             2. socket.io 커넥터와 host로 Echo를 초기화 
             3. 호환되는 Socket.IO 서버를 실행
 - 큐를 사용하므로 큐설정이 되어 있어야 함
