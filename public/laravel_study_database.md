@@ -1046,7 +1046,7 @@ $ php artisan db:seed --force
     ```
 
 ### 6.2.1.파이프라이닝 명령어
-- 파이프라이닝 : 다수의 명령어를 한 번에 서버로 전달시 사용
+- 파이프라이닝 : 다수의 명령어를 한 번에 서버로 전달
 - pipline() 메소드 : 클로저(redis인스턴스를 전달받음)를 인자로 받아 redis인스턴스에 한 번에 명령을 내려 실행시킴
     ```php
     Redis::pipeline(function ($pipe) {
