@@ -1757,22 +1757,32 @@ return (new UserCollection(User::all()->load('roles')))
 
 # 6. SERIALIZATION
 
-
-
-
-
 ## 6.1. 시작하기
+모델을 JSON으로 변환하면서 serialization 할 때 어떤 속성을 포함시킬지를 제어하는 메소드들을 소개함
 
 ## 6.2. 모델 & 컬렉션 Serializing
 ### 6.2.1. 배열로 Serializing
+- toArray() : 재귀적 (모든속성과 모든 관계모델도 배열로 변환)
+- attributesToArray() : 속성만을 배열로 변환
+
+
 ### 6.2.2. JSON 으로 Serializing
+- toJson() : 재귀적 (모든속성과 모든 관계모델도 JSON으로 변환), 인코딩 옵션 지정가능
+- 모델을 문자열로 캐스팅(자동으로 toJson() 호출됨)하여 변환
+- 라우트, 컨트롤러에서 Eloquent객체 바로 반환(문자열로 캐스팅됨)
+- makeVisible(), makeHidden() : 일시적으로 모델속성의 노출정도를 수정
 
 ## 6.3. JSON 변환시 속성값 숨기기
+- 모델 클래스 $hidden배열에 속성명을 추가하여 JSON에 포함되지 않도록 함
+- $visible은 포함되어야 하는 속성들을 명시
 
 ## 6.4. JSON 변환시 특정 값 추가하기
+- 컬럼명과 일치하지 않는 모델속성명은 값에 대한 accessor를 정의
+    - 정의 후 모델의 appends값에 속성명 추가
+- append(), setAppends() : 런타임에 모델인스턴스 속성 추가/오버라이드
 
 ## 6.5. 날짜 Serialization
-
+- 모델클래스의 $casts 정의하여 날짜 포맷 속성을 커스텀
 
 
 
