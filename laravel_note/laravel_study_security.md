@@ -13,7 +13,7 @@
     - 라라벨ui 패키지, vue auth 스캐폴딩 설치하여 사용가능
 
 ### 1.1.1. DB 유의사항
-- 기본적으로 Apa\User Eloquent모델 포함 (Eloquent인증드라이버와 함께 사용)
+- 기본적으로 App\User Eloquent모델 포함 (Eloquent인증드라이버와 함께 사용)
 - 스키마 생성시 Password컬럼은 최소60자(기본값 255자)
 - users 테이블은 remember_token컬럼을 포함해야 함
 
@@ -410,6 +410,16 @@ Illuminate\Contracts\Auth\UserProvider의 구현체는 스토리지에서 Illumi
 - 라라벨은 인증과정 중 다양한 이벤트를 발생시킴
 - EventServiceProvider의 $listen배열에 이벤트 리스너 클래스 추가 
 
+
+
+
+
+
+
+
+
+
+
 # 2. API인증
 ## 2.1. 시작하기
 - 라라벨은  api가드의 토큰 드라이버를 사용해 API인증을 제공
@@ -664,7 +674,7 @@ class AuthServiceProvider extends ServiceProvider
     - AuthServiceProvider에 명시적으로 매핑된 모든 Policy는 auto-discovered Policy보다 우선시됨
 
 ## 3.4. Policies 작성
-### 3.4.1. Policy() 메소드
+### 3.4.1. Policy메소드
 ```php
 namespace App\Policies;
 
@@ -711,7 +721,7 @@ Gate::authorize('update', $post);
 
 
 ### 3.4.3. 모델없는 메소드
-create() 같은 policy()메소드 정의시, 모델전달없이 인증된 사용자를 전달받도록 함
+create() 같은 policy메소드 정의시, 모델전달없이 인증된 사용자를 전달받도록 함
 ```php
 public function create(User $user) {} // 인증된 사용자만 받음
 ```
@@ -862,6 +872,8 @@ class PostController extends Controller
     ```
 
 
+
+
 # 4. Email 검증
 ## 4.1. 시작하기
 - 라라벨은 이메일 검증하는 편리한 방법 제공
@@ -884,7 +896,7 @@ class PostController extends Controller
 ## 4.2. DB고려사항
 - user테이블은 이메일주소 검증날짜 및 시간 컬럼 email_verified_at 을 포함해야 함
     - 라라벨 기본 users테이블 마이그레이션에는 이미 이 컬럼이 포함
-    - DB마이그리에션만 실행하면 됨
+    - DB마이그레이션만 실행하면 됨
         ```php
         php artisan migrate
         ```
@@ -1084,10 +1096,10 @@ class PostController extends Controller
         ```
 - 패스워드 재설정 이메일 커스터마이징하기
     - User모델의 sendPasswordResetNotification()메소드 오버라이딩
-    ```php
-    public function sendPasswordResetNotification($token)
-    {
-        $this->notify(new ResetPasswordNotification($token)); 
-        // 선택한 알림클래스로 알림 전송 가능
-    }
-    ```
+        ```php
+        public function sendPasswordResetNotification($token)
+        {
+            $this->notify(new ResetPasswordNotification($token)); 
+            // 선택한 알림클래스로 알림 전송 가능
+        }
+        ```
