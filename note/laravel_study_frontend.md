@@ -445,12 +445,12 @@ public function boot()
   'fallback_locale' => 'en',
   ```
 - 현재 로케일 확인
-```php
-$locale = App::getLocale();
-if (App::isLocale('en')) {
-    //
-}
-```
+  ```php
+  $locale = App::getLocale();
+  if (App::isLocale('en')) {
+      //
+  }
+  ```
 
 ## 2.2. 다국어 문자값 정의
 ### 2.2.1. 짧은 키 사용
@@ -464,12 +464,12 @@ return [
 ### 2.2.2. 다국어 문자열을 키로 사용
 - 문자열 자체를 키로 하용하여 번역된 문자열을 사용가능
 - JSON파일로 저장됨
-```php
-// resources/lang/es.json
-{
-    "I love programming.": "Me encanta programar."
-}
-```
+  ```php
+  // resources/lang/es.json
+  {
+      "I love programming.": "Me encanta programar."
+  }
+  ```
 
 ## 2.3. 다국어 문자 조회
 - __() 헬퍼 함수로 조회가능

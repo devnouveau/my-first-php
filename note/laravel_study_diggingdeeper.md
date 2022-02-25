@@ -299,7 +299,7 @@ public function handle()
 - ```config/broadcasting.php```에서 브로드캐스트 드라이버 설정(Pusher Channels, Redis, 디버깅 용도의 log 드라이버, null드라이버)
 
 - 브로드캐스트 서비스 프로바이더
-    - config/app.php - providers배열에서 App\Providers\BroadcastServiceProvider를 사용할 수 있도록 설정
+    - ```config/app.php``` - providers배열에서 App\Providers\BroadcastServiceProvider를 사용할 수 있도록 설정
     - 브로드캐스트 인증 라우트와 콜백을 등록할 수 있게 해줌
 
 - CSRF 토큰

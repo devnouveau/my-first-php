@@ -13,11 +13,13 @@
 #### 1.1.2. HTTP / Console Kernels
 - 들어온 요청은 요청타입에 따라 각각의 HTTP 커널이나 콘솔커널로 보내짐
 - HTTP 커널 (app/Http/Kernel.php)
+    - Illuminate\Foundation\Http\Kernel 클래스를 상속
     - 요청 실행 전 처리 될 것들을 정의
-        - Kernel 클래스의 bootstrappers 배열 : 에러핸들링  및 로깅설정, 앱환경 탐지 등
-        - Illuminate\Foundation\Http\Kernel 클래스를 상속
     - 미들웨어 설정
         - 미들웨어 : 세션읽고 쓰기, CSRF토큰 인증 등을 처리
+- Console 커널 (app/Console/Kernel.php)
+    - Illuminate\Contracts\Console\Kernel 클래스를 상속
+    - bootstrappers 배열 : 에러핸들링  및 로깅설정, 앱환경 탐지 등
     - handle 메소드 정의
         - handle 메소드 : request를 받고 response를 리턴
 
